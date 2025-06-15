@@ -3,6 +3,9 @@ pub mod constructors;
 pub mod movegen;
 pub mod movement;
 pub mod check_mate;
+pub mod attackgen;
+
+use std::fmt;
 
 use crate::player::Player;
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -83,6 +86,22 @@ impl Move {
             prev_long_castle,
             was_promotion,
             promoted_to,
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveError {
+    IllegalMove,
+    WrongTurn,
+    PiecePinned,
+    
+}
+impl fmt::Display for MoveError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MoveError::IllegalMove => write!(f, "Illegal move"),
+            MoveError::WrongTurn => write!(f, "It's the wrong player's turn"),
+            MoveError::PiecePinned => write!(f, "Piece is pinned"),
         }
     }
 }

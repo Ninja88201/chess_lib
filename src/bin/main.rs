@@ -1,5 +1,7 @@
+use chess_lib::bitboard::Bitboard;
 use chess_lib::board::{Board, Piece};
 use macroquad::prelude::*;
+use macroquad::rand::*;
 
 const TILE_SIZE: f32 = 80.0;
 const SPRITE_SIZE: f32 = 189.0;
@@ -15,6 +17,7 @@ async fn main() {
 
     let mut flipped = true;
     let mut selected_square: Option<u8> = None;
+    let mut player_white: bool = true;
 
     loop {
         clear_background(BLACK);
@@ -35,36 +38,57 @@ async fn main() {
             println!("{}", board.to_fen());
         }
         if is_mouse_button_pressed(MouseButton::Left) {
+
             if let Some(clicked_square) = get_square(mouse_position().into(), flipped) {
                 match selected_square {
                     Some(square) => {
-                        // Unselect Piece
+                        let (player, _) = board.get_players(board.white_turn);
                         if square == clicked_square {
                             selected_square = None
                         }
-                        // Deselect after move
-                        else if board.try_move_piece(square, clicked_square) {
-                            selected_square = None;
-                        }
-                        // Select different piece
-                        else {
-                            if board.occupied() & (1 << clicked_square) != 0 {
-                                if let Some((_, white)) = board.get_piece_at_square(clicked_square)
-                                {
-                                    if white == board.white_turn {
-                                        selected_square = Some(clicked_square);
-                                    }
+                        else if player.pieces().get_bit(clicked_square) {
+                            if let Some((_, white)) = board.get_piece_at_square(clicked_square)
+                            {
+                                if white == board.white_turn {
+                                    selected_square = Some(clicked_square);
                                 }
+                            }
+                        }
+                        else {
+                            let result = board.try_move_piece(square, clicked_square);
+                            match result {
+                                Ok(_) => {
+                                    selected_square = None;
+                                },
+                                Err(e) => {
+                                    use chess_lib::board::MoveError as me;
+                                    match e {
+                                        me::IllegalMove => println!("That move is illegal"),
+                                        me::WrongTurn => println!("It's not your turn"),
+                                        me::PiecePinned => println!("That piece is pinned"),
+                                    }
+                                    
+                                },
                             }
                         }
                     }
                     None => {
-                        if board.occupied() & (1 << clicked_square) != 0 {
+                        if board.occupied().get_bit(clicked_square) {
                             selected_square = Some(clicked_square);
                         }
                     }
                 }
             }
+        }
+        // if board.white_turn != player_white {
+        //     let moves = board.generate_legal_moves(board.white_turn);
+        //     let (from, to) = pick_random_move(moves).unwrap();
+        //     board.try_move_piece(from, to);
+        // }
+        if is_key_pressed(KeyCode::Space) {
+            let moves = board.generate_legal_moves(board.white_turn);
+            let (from, to) = pick_random_move(moves).unwrap();
+            let _ = board.try_move_piece(from, to);
         }
 
         render_board(&piece_atlas, &board, selected_square, flipped);
@@ -72,8 +96,20 @@ async fn main() {
         next_frame().await;
     }
 }
-fn render_board(atlas: &Texture2D, board: &Board, selecetd: Option<u8>, flipped: bool) {
+fn pick_random_move(moves: Vec<(u8, Bitboard)>) -> Option<(u8, u8)> {
+    let mut all_moves = Vec::new();
+
+    for (from, targets) in moves {
+        for to in targets {
+            all_moves.push((from, to));
+        }
+    }
+    all_moves.choose().copied()
+}
+fn render_board(atlas: &Texture2D, board: &Board, selected: Option<u8>, flipped: bool) {
     let highlight = get_square(mouse_position().into(), flipped);
+    let white_in_check = board.is_in_check(true);
+    let black_in_check = board.is_in_check(false);
     for rank in 0..8 {
         for file in 0..8 {
             let (x, y) = square_to_screen(rank * 8 + file, flipped);
@@ -93,11 +129,25 @@ fn render_board(atlas: &Texture2D, board: &Board, selecetd: Option<u8>, flipped:
                     color.a = 0.75;
                 }
             }
+            if white_in_check {
+                if (rank * 8 + file) as u8 == board.white.get_king_square() {
+                    color.r = 1.0;
+                    color.g *= 0.5;
+                    color.b *= 0.5;
+                }
+            }
+            if black_in_check {
+                if (rank * 8 + file) as u8 == board.black.get_king_square() {
+                    color.r = 1.0;
+                    color.g *= 0.5;
+                    color.b *= 0.5;
+                }
+            }
             draw_rectangle(x, y, TILE_SIZE, TILE_SIZE, color);
         }
     }
     render_pieces(atlas, flipped, board);
-    if let Some(s) = selecetd {
+    if let Some(s) = selected {
         if let Some((_, white)) = board.get_piece_at_square(s) {
             if white == board.white_turn {
                 render_moves(board, s, flipped);
@@ -114,11 +164,9 @@ fn render_pieces(atlas: &Texture2D, flipped: bool, board: &Board) {
     }
 }
 
-fn render_piece_type(atlas: &Texture2D, bitboard: u64, piece: Piece, white: bool, flipped: bool) {
-    let mut b = bitboard;
-    while b != 0 {
-        let sq = b.trailing_zeros() as u8;
-        let (x, y) = square_to_screen(sq, flipped);
+fn render_piece_type(atlas: &Texture2D, bitboard: Bitboard, piece: Piece, white: bool, flipped: bool) {
+    for s in bitboard {
+        let (x, y) = square_to_screen(s, flipped);
 
         draw_texture_ex(
             atlas,
@@ -131,8 +179,6 @@ fn render_piece_type(atlas: &Texture2D, bitboard: u64, piece: Piece, white: bool
                 ..Default::default()
             },
         );
-
-        b &= b - 1;
     }
 }
 
@@ -160,18 +206,14 @@ fn get_piece_sprite_rect(piece: Piece, white: bool) -> Rect {
     )
 }
 fn render_moves(board: &Board, selected: u8, flipped: bool) {
-    // let mut moves = board.generate_moves_from(selected);
-    let mut moves = board.generate_legal_moves(selected);
-    while moves != 0 {
-        let sq = moves.trailing_zeros() as u8;
-        let (x, y) = square_to_screen(sq, flipped);
+    for s in board.generate_legal_moves_from(selected) {
+        let (x, y) = square_to_screen(s, flipped);
         draw_circle(
             x + (TILE_SIZE / 2.0),
             y + (TILE_SIZE / 2.0),
             TILE_SIZE / 2.0 * 0.4,
             DARKGRAY,
         );
-        moves &= moves - 1;
     }
 }
 fn get_square(pos: Vec2, flipped: bool) -> Option<u8> {

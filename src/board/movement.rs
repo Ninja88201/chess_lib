@@ -1,4 +1,5 @@
-use crate::board::{Board, Piece, Move};
+use crate::bitboard::Bitboard;
+use crate::board::{Board, Move, MoveError, Piece};
 use crate::player::Player;
 
 impl Board {
@@ -38,7 +39,7 @@ impl Board {
         format!("{}{}", fen, turn)
     }
 
-    pub fn occupied(&self) -> u64 {
+    pub fn occupied(&self) -> Bitboard {
         self.white.pieces() | self.black.pieces()
     }
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {
@@ -63,28 +64,27 @@ impl Board {
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-    pub fn try_move_piece(&mut self, from: u8, to: u8) -> bool {
+    pub fn try_move_piece(&mut self, from: u8, to: u8) -> Result<(), MoveError> {
         // Can't move to same square
         if from == to {
-            return false;
+            return Err(MoveError::IllegalMove);
         }
 
         let piece_moved = self.get_piece_at_square(from);
         let target_piece = self.get_piece_at_square(to);
         let legal_moves = self.generate_moves_from(from);
-        // let legal_moves = self.generate_legal_moves(from);
 
         // If no piece at source or not player's piece, fail
         let Some((moved_piece, is_white)) = piece_moved else {
-            return false;
+            return Err(MoveError::IllegalMove);
         };
         if is_white != self.white_turn {
-            return false;
+            return Err(MoveError::WrongTurn);
         }
 
         // Move not Pseudo-legal
-        if (legal_moves & (1u64 << to)) == 0 {
-            return false;
+        if !legal_moves.get_bit(to) {
+            return Err(MoveError::IllegalMove);
         }
 
         // Snapshot castling rights
@@ -99,15 +99,14 @@ impl Board {
 
         let capture = if let Some((captured_piece, captured_is_white)) = target_piece {
             if captured_is_white == self.white_turn {
-                return false;
+                return Err(MoveError::IllegalMove);
             }
             opponent.remove_piece_type(captured_piece, to)
         } else {
             None
         };
 
-        player.remove_piece_type(moved_piece, from);
-        player.place_piece(moved_piece, to);
+        player.move_piece_unchecked(from, to);
 
         if moved_piece == Piece::King {
             player.short_castle = false;
@@ -151,7 +150,7 @@ impl Board {
 
         if self.is_in_check(!self.white_turn) {
             self.undo_move();
-            return false;
+            return Err(MoveError::PiecePinned);
         }
 
         // Optional: print if checkmate
@@ -159,7 +158,7 @@ impl Board {
             println!("Checkmate");
         }
 
-        true
+        Ok(())
     }
     pub fn make_move_unchecked(&mut self, from: u8, to: u8) -> bool {
         // Can't move to same square
@@ -181,7 +180,7 @@ impl Board {
         }
 
         // Move not Pseudo-legal
-        if (legal_moves & (1u64 << to)) == 0 {
+        if !legal_moves.get_bit(to) {
             return false;
         }
 
