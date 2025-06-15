@@ -1,0 +1,79 @@
+use crate::board::{Board, Piece};
+use crate::player::Player;
+
+impl Board {
+    pub fn new() -> Self {
+        Self {
+            white: Player::new_white(),
+            black: Player::new_black(),
+
+            white_turn: true,
+            history: Vec::new(),
+        }
+    }
+    pub fn new_empty() -> Self {
+        Self {
+            white: Player::new_empty(),
+            black: Player::new_empty(),
+
+            white_turn: true,
+            history: Vec::new(),
+        }
+    }
+    pub fn new_from_fen(fen: &str) -> Result<Self, String> {
+        let mut board = Board::new_empty();
+        let mut fields = fen.split_whitespace();
+
+        let piece_placement = fields.next().ok_or("Missing piece placement in FEN")?;
+        let active_color = fields.next().unwrap_or("w");
+
+        if piece_placement.split('/').count() != 8 {
+            return Err("Invalid FEN: expected 8 ranks".to_string());
+        }
+
+        for (rank_idx, rank_str) in piece_placement.split('/').enumerate() {
+            let mut file = 0;
+            for ch in rank_str.chars() {
+                match ch {
+                    '1'..='8' => {
+                        file += ch.to_digit(10).unwrap() as u8;
+                    }
+                    'p' | 'P' | 'n' | 'N' | 'b' | 'B' | 'r' | 'R' | 'q' | 'Q' | 'k' | 'K' => {
+                        if file >= 8 {
+                            return Err(format!("Too many pieces in rank {}", 8 - rank_idx));
+                        }
+
+                        let is_white = ch.is_uppercase();
+                        let piece = match ch.to_ascii_lowercase() {
+                            'p' => Piece::Pawn,
+                            'n' => Piece::Knight,
+                            'b' => Piece::Bishop,
+                            'r' => Piece::Rook,
+                            'q' => Piece::Queen,
+                            'k' => Piece::King,
+                            _ => return Err(format!("Invalid piece character: {}", ch)),
+                        };
+
+                        let rank = 7 - rank_idx as u8; // Convert to 0-indexed from top
+                        let square = rank * 8 + file;
+                        if is_white {
+                            board.white.place_piece(piece, square);
+                        } else {
+                            board.black.place_piece(piece, square);
+                        }
+
+                        file += 1;
+                    }
+                    _ => return Err(format!("Invalid character in FEN: {}", ch)),
+                }
+            }
+
+            if file != 8 {
+                return Err(format!("Incomplete rank {} in FEN", 8 - rank_idx));
+            }
+        }
+
+        board.white_turn = active_color == "w";
+        Ok(board)
+    }
+}
