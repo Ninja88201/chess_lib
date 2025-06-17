@@ -4,6 +4,7 @@ pub mod movegen;
 pub mod movement;
 pub mod check_mate;
 pub mod attackgen;
+pub mod helper;
 
 use std::fmt;
 
@@ -14,6 +15,7 @@ pub struct Board {
     pub black: Player,
 
     pub white_turn: bool,
+    pub en_passant: Option<u8>,
     pub history: Vec<Move>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,12 +59,11 @@ pub struct Move {
     pub to: u8,
     pub piece: Piece,
     pub capture: Option<Piece>,
+    pub en_passant: Option<u8>,
 
-    // New fields for undoing special state
-    pub prev_short_castle: (bool, bool), // (white, black)
-    pub prev_long_castle: (bool, bool),  // (white, black)
-    pub was_promotion: bool,
-    pub promoted_to: Option<Piece>, // Only relevant if was_promotion = true
+    pub prev_white_castle: CastlingRights,
+    pub prev_black_castle: CastlingRights,
+    pub promoted_to: Option<Piece>,
 }
 impl Move {
     pub fn new(
@@ -71,9 +72,9 @@ impl Move {
         to: u8,
         piece: Piece,
         capture: Option<Piece>,
-        prev_short_castle: (bool, bool),
-        prev_long_castle: (bool, bool),
-        was_promotion: bool,
+        en_passant: Option<u8>,
+        prev_white_castle: CastlingRights,
+        prev_black_castle: CastlingRights,
         promoted_to: Option<Piece>,
     ) -> Self {
         Self {
@@ -82,19 +83,23 @@ impl Move {
             to,
             piece,
             capture,
-            prev_short_castle,
-            prev_long_castle,
-            was_promotion,
+            en_passant,
+            prev_white_castle,
+            prev_black_castle,
             promoted_to,
         }
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveError {
+    NoPieceSelected,
+    SameTile,
+    FriendlyCapture,
     IllegalMove,
     WrongTurn,
     PiecePinned,
-    
+    Stalemate,
+    Cancelled,
 }
 impl fmt::Display for MoveError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -102,6 +107,50 @@ impl fmt::Display for MoveError {
             MoveError::IllegalMove => write!(f, "Illegal move"),
             MoveError::WrongTurn => write!(f, "It's the wrong player's turn"),
             MoveError::PiecePinned => write!(f, "Piece is pinned"),
+            MoveError::Stalemate => write!(f, "The board is in a stalemate"),
+            MoveError::NoPieceSelected => write!(f, "No piece is selected"),
+            MoveError::SameTile => write!(f, "Same tile selected"),
+            MoveError::FriendlyCapture => write!(f, "Cannot capture own piece"),
+            MoveError::Cancelled => write!(f, "Cancelled move"),
+        }
+    }
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum CastlingRights {
+    None,
+    KingSide,
+    QueenSide,
+    Both,
+}
+impl CastlingRights
+{
+    pub fn to_fen(&self, white: bool) -> String {
+        let result = match self {
+            CastlingRights::None => "",
+            CastlingRights::KingSide => "k",
+            CastlingRights::QueenSide => "q",
+            CastlingRights::Both => "kq",
+        };
+        if white {
+            result.to_uppercase()
+        } else {
+            result.to_string()
+        }
+    }
+    pub fn short_castle(&self) -> bool {
+        match self {
+            CastlingRights::None => false,
+            CastlingRights::KingSide => true,
+            CastlingRights::QueenSide => false,
+            CastlingRights::Both => true,
+        }
+    }
+    pub fn long_castle(&self) -> bool {
+        match self {
+            CastlingRights::None => false,
+            CastlingRights::KingSide => false,
+            CastlingRights::QueenSide => true,
+            CastlingRights::Both => true,
         }
     }
 }

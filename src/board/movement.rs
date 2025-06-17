@@ -1,5 +1,5 @@
 use crate::bitboard::Bitboard;
-use crate::board::{Board, Move, MoveError, Piece};
+use crate::board::{Board, CastlingRights, Move, MoveError, Piece};
 use crate::player::Player;
 
 impl Board {
@@ -64,234 +64,225 @@ impl Board {
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-    pub fn try_move_piece(&mut self, from: u8, to: u8) -> Result<(), MoveError> {
-        // Can't move to same square
+    pub async fn try_move_piece<C, F: AsyncFn(u8, C) -> Option<Piece>>
+    (&mut self, from: u8, to: u8, promotion: F, context: C) -> Result<(), MoveError> {
         if from == to {
+            return Err(MoveError::SameTile);
+        }
+        let result = self.get_piece_at_square(from);
+        if let Some((p, _)) = result {
+            let back_rank: u8 = match self.white_turn {
+                true => 7,
+                false => 0,
+            };
+            let mut promote = None;
+            let mut capture = None;
+            if to / 8 == back_rank && p == Piece::Pawn{
+                let promotion = promotion(to, context);
+                match promotion.await {
+                    Some(p) => {
+                        promote = Some(p);           
+                    },
+                    None => return Err(MoveError::Cancelled),
+                }
+            }
+            capture = match self.get_piece_at_square(to) {
+                Some((p, w)) => {
+                    if w == self.white_turn {
+                        return Err(MoveError::FriendlyCapture);
+                    }
+                    Some(p)
+                },
+                None => None,
+            };
+            if let Some(ep) = self.en_passant {
+                if to == ep && p == Piece::Pawn {
+                    capture = Some(Piece::Pawn);
+                }
+            }
+            let mov = Move::new(
+                self.white_turn, 
+                from, 
+                to, 
+                p, 
+                capture,
+                self.en_passant, 
+                self.white.castling, 
+                self.black.castling ,
+                promote
+            );
+            let result = self.make_move_unchecked(mov);
+
+            if self.is_in_check(!self.white_turn) {
+                self.undo_move();
+                return Err(MoveError::PiecePinned);
+            }
+            if self.generate_legal_moves(self.white_turn).len() == 0 && !self.is_in_check(self.white_turn){
+                println!("Stalemate");
+            }
+    
+            if self.is_checkmate(self.white_turn) {
+                println!("Checkmate");
+            }
+    
+            return result;
+        } else {
+            return Err(MoveError::NoPieceSelected);
+        }
+        
+
+    }
+    pub fn make_move_unchecked(&mut self, mov: Move) -> Result<(), MoveError> {
+        if mov.from == mov.to {
             return Err(MoveError::IllegalMove);
         }
 
-        let piece_moved = self.get_piece_at_square(from);
-        let target_piece = self.get_piece_at_square(to);
-        let legal_moves = self.generate_moves_from(from);
+        let piece_moved = self.get_piece_at_square(mov.from);
+        // let target_piece = self.get_piece_at_square(mov.to);
+        let legal_moves = self.generate_moves_from(mov.from);
 
-        // If no piece at source or not player's piece, fail
-        let Some((moved_piece, is_white)) = piece_moved else {
+        
+        if legal_moves.len() == 0 && !self.is_in_check(self.white_turn) {
+            println!("Stalemate");
+            return Err(MoveError::Stalemate);
+        }
+
+        let Some((_, is_white)) = piece_moved else {
             return Err(MoveError::IllegalMove);
         };
         if is_white != self.white_turn {
             return Err(MoveError::WrongTurn);
         }
-
-        // Move not Pseudo-legal
-        if !legal_moves.get_bit(to) {
+        if !legal_moves.contains(&mov) {
             return Err(MoveError::IllegalMove);
         }
 
-        // Snapshot castling rights
-        let prev_short_castle = (self.white.short_castle, self.black.short_castle);
-        let prev_long_castle = (self.white.long_castle, self.black.long_castle);
-
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
             (&mut self.black, &mut self.white)
         };
 
-        let capture = if let Some((captured_piece, captured_is_white)) = target_piece {
-            if captured_is_white == self.white_turn {
-                return Err(MoveError::IllegalMove);
+        if let Some(_) = mov.capture {
+            if let Some(s) = mov.en_passant {
+                let direction: i8 = match self.white_turn {
+                    true => 8,
+                    false => -8,
+                };
+                opponent.remove_piece((s as i8 - direction) as u8);
             }
-            opponent.remove_piece_type(captured_piece, to)
-        } else {
-            None
-        };
+            else {
+                opponent.remove_piece(mov.to);
+            }
+        }
 
-        player.move_piece_unchecked(from, to);
+        player.move_piece(mov.from, mov.to);
+        self.en_passant = None;
 
-        if moved_piece == Piece::King {
-            player.short_castle = false;
-            player.long_castle = false;
 
-            match (is_white, from, to) {
+        if let Some(p) = mov.promoted_to {
+            player.remove_piece(mov.to);
+            player.place_piece(p, mov.to);
+        }
+
+        if mov.piece == Piece::King {
+            player.castling = CastlingRights::None;
+            match (mov.white_turn, mov.from, mov.to) {
                 (true, Board::E1, Board::G1) => {
-                    player.remove_piece_type(Piece::Rook, Board::H1);
-                    player.place_piece(Piece::Rook, Board::F1);
+                    player.move_piece(Board::H1, Board::F1);
                 }
                 (true, Board::E1, Board::C1) => {
-                    player.remove_piece_type(Piece::Rook, Board::A1);
-                    player.place_piece(Piece::Rook, Board::D1);
+                    player.move_piece(Board::A1, Board::D1);
                 }
                 (false, Board::E8, Board::G8) => {
-                    player.remove_piece_type(Piece::Rook, Board::H8);
-                    player.place_piece(Piece::Rook, Board::F8);
+                    player.move_piece(Board::H8, Board::F8);
                 }
                 (false, Board::E8, Board::C8) => {
-                    player.remove_piece_type(Piece::Rook, Board::A8);
-                    player.place_piece(Piece::Rook, Board::D8);
+                    player.move_piece(Board::A8, Board::D8);
                 }
                 _ => {}
             }
         }
+        if mov.piece == Piece::Rook && player.castling != CastlingRights::None {
+            if mov.from == Board::A1 || mov.from == Board::A8 {
+                player.castling = match player.castling {
+                    CastlingRights::None => CastlingRights::None,
+                    CastlingRights::KingSide => CastlingRights::KingSide,
+                    CastlingRights::QueenSide => CastlingRights::None,
+                    CastlingRights::Both => CastlingRights::KingSide,
+                }
+            }
+            if mov.from ==  Board::H1 || mov.from == Board::H8 {
+                player.castling = match player.castling {
+                    CastlingRights::None => CastlingRights::None,
+                    CastlingRights::KingSide => CastlingRights::None,
+                    CastlingRights::QueenSide => CastlingRights::QueenSide,
+                    CastlingRights::Both => CastlingRights::QueenSide,
+                }
+            }
+        }
+        if mov.piece == Piece::Pawn && !self.get_neighbours(mov.from).get_bit(mov.to) {
+            let direction: i8 = match self.white_turn {
+                true => 8,
+                false => -8,
+            };
+            self.en_passant = Some((mov.to as i8 - direction) as u8);
+        }
+        self.history.push(mov);
 
-        // Save move to history
-        self.history.push(Move::new(
-            self.white_turn,
-            from,
-            to,
-            moved_piece,
-            capture,
-            prev_short_castle,
-            prev_long_castle,
-            false,
-            None,
-        ));
-        
         self.white_turn = !self.white_turn;
-
-        if self.is_in_check(!self.white_turn) {
-            self.undo_move();
-            return Err(MoveError::PiecePinned);
-        }
-
-        // Optional: print if checkmate
-        if self.is_checkmate(self.white_turn) {
-            println!("Checkmate");
-        }
-
         Ok(())
     }
-    pub fn make_move_unchecked(&mut self, from: u8, to: u8) -> bool {
-        // Can't move to same square
-        if from == to {
-            return false;
-        }
-
-        let piece_moved = self.get_piece_at_square(from);
-        let target_piece = self.get_piece_at_square(to);
-        let legal_moves = self.generate_moves_from(from);
-        // let legal_moves = self.generate_legal_moves(from);
-
-        // If no piece at source or not player's piece, fail
-        let Some((moved_piece, is_white)) = piece_moved else {
-            return false;
-        };
-        if is_white != self.white_turn {
-            return false;
-        }
-
-        // Move not Pseudo-legal
-        if !legal_moves.get_bit(to) {
-            return false;
-        }
-
-        // Snapshot castling rights
-        let prev_short_castle = (self.white.short_castle, self.black.short_castle);
-        let prev_long_castle = (self.white.long_castle, self.black.long_castle);
-
-        let (player, opponent) = if self.white_turn {
-            (&mut self.white, &mut self.black)
-        } else {
-            (&mut self.black, &mut self.white)
-        };
-
-        let capture = if let Some((captured_piece, captured_is_white)) = target_piece {
-            if captured_is_white == self.white_turn {
-                return false;
-            }
-            opponent.remove_piece_type(captured_piece, to)
-        } else {
-            None
-        };
-
-        player.remove_piece_type(moved_piece, from);
-        player.place_piece(moved_piece, to);
-
-        if moved_piece == Piece::King {
-            player.short_castle = false;
-            player.long_castle = false;
-
-            match (is_white, from, to) {
-                (true, Board::E1, Board::G1) => {
-                    player.remove_piece_type(Piece::Rook, Board::H1);
-                    player.place_piece(Piece::Rook, Board::F1);
-                }
-                (true, Board::E1, Board::C1) => {
-                    player.remove_piece_type(Piece::Rook, Board::A1);
-                    player.place_piece(Piece::Rook, Board::D1);
-                }
-                (false, Board::E8, Board::G8) => {
-                    player.remove_piece_type(Piece::Rook, Board::H8);
-                    player.place_piece(Piece::Rook, Board::F8);
-                }
-                (false, Board::E8, Board::C8) => {
-                    player.remove_piece_type(Piece::Rook, Board::A8);
-                    player.place_piece(Piece::Rook, Board::D8);
-                }
-                _ => {}
-            }
-        }
-
-        // Save move to history
-        self.history.push(Move::new(
-            self.white_turn,
-            from,
-            to,
-            moved_piece,
-            capture,
-            prev_short_castle,
-            prev_long_castle,
-            false,
-            None,
-        ));
-        
-        self.white_turn = !self.white_turn;
-
-        true
-    }
     pub fn undo_move(&mut self) {
+        let white = self.white_turn;
         if let Some(last_move) = self.history.pop() {
-            let (player, opponent) = self.get_players_mut(last_move.white_turn);
-
+            let (player, opponent) = match last_move.white_turn {
+                true => (&mut self.white, &mut self.black),
+                false => (&mut self.black, &mut self.white),
+            };
+            if let Some(_) = last_move.promoted_to {
+                player.remove_piece(last_move.to);
+                player.place_piece(Piece::Pawn, last_move.to);
+            }
             // Move piece back
-            player.remove_piece_type(last_move.piece, last_move.to);
-            player.place_piece(last_move.piece, last_move.from);
-
+            player.move_piece(last_move.to, last_move.from);
+            
             // Restore captured piece if any
             if let Some(captured) = last_move.capture {
-                opponent.place_piece(captured, last_move.to);
+                if let Some(passant) = last_move.en_passant {
+                    let direction: i8 = match white {
+                        true => 8,
+                        false => -8,
+                    };
+                    opponent.place_piece(Piece::Pawn, (passant as i8 + direction) as u8);
+                }
+                else {
+                    opponent.place_piece(captured, last_move.to);
+                }
             }
 
             // Handle castling reversal
             if last_move.piece == Piece::King {
-                match (last_move.from, last_move.to) {
-                    (4, 6) => {
-                        // White kingside
-                        player.remove_piece_type(Piece::Rook, 5);
-                        player.place_piece(Piece::Rook, 7);
+                match (last_move.white_turn, last_move.from, last_move.to) {
+                    (true, Board::E1, Board::G1) => {
+                        player.move_piece(Board::F1, Board::H1);
                     }
-                    (4, 2) => {
-                        // White queenside
-                        player.remove_piece_type(Piece::Rook, 3);
-                        player.place_piece(Piece::Rook, 0);
+                    (true, Board::E1, Board::C1) => {
+                        player.move_piece(Board::D1, Board::A1);
                     }
-                    (60, 62) => {
-                        // Black kingside
-                        player.remove_piece_type(Piece::Rook, 61);
-                        player.place_piece(Piece::Rook, 63);
+                    (false, Board::E8, Board::G8) => {
+                        player.move_piece(Board::F8, Board::H8);
                     }
-                    (60, 58) => {
-                        // Black queenside
-                        player.remove_piece_type(Piece::Rook, 59);
-                        player.place_piece(Piece::Rook, 56);
+                    (false, Board::E8, Board::C8) => {
+                        player.move_piece(Board::D8, Board::A8);
                     }
                     _ => {}
                 }
             }
+            self.white.castling = last_move.prev_white_castle;
+            self.black.castling = last_move.prev_black_castle;
+            self.en_passant = last_move.en_passant;
 
-            self.white.short_castle = last_move.prev_short_castle.0;
-            self.black.short_castle = last_move.prev_short_castle.1;
-            self.white.long_castle = last_move.prev_long_castle.0;
-            self.black.long_castle = last_move.prev_long_castle.1;
             self.white_turn = !self.white_turn;
         }
     }

@@ -138,7 +138,13 @@ impl Board {
 
         for d in Board::KING_OFFSETS {
             let dest = square as i8 + d;
-            if (0..64).contains(&dest) {
+
+            let dest_file = dest % 8;
+            let from_file = square % 8;
+
+            if (0..64).contains(&dest)
+                && (from_file as i8 - dest_file as i8).abs() <= 1
+            {
                 attacks.set_bit(dest as u8, true);
             }
         }

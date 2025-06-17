@@ -1,12 +1,10 @@
-use crate::{bitboard::Bitboard, board::Piece, board::Board};
+use crate::{bitboard::Bitboard, board::{CastlingRights, Piece}};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {
     pub bb: [Bitboard; 6],
 
-    pub short_castle: bool,
-    pub long_castle: bool,
-    pub auto_queen: bool,
+    pub castling: CastlingRights,
 }
 
 impl Player {
@@ -14,9 +12,7 @@ impl Player {
     pub fn new_empty() -> Self {
         Self {
             bb: [Bitboard::EMPTY; 6],
-            short_castle: true,
-            long_castle: true,
-            auto_queen: true,
+            castling: CastlingRights::Both,
         }
     }
 
@@ -31,9 +27,7 @@ impl Player {
                 Bitboard::new(0x0000_0000_0000_0008),
                 Bitboard::new(0x0000_0000_0000_0010),
             ],
-            short_castle: true,
-            long_castle: true,
-            auto_queen: true,
+            castling: CastlingRights::Both,
         }
     }
 
@@ -48,9 +42,7 @@ impl Player {
                 Bitboard::new(0x0800_0000_0000_0000),
                 Bitboard::new(0x1000_0000_0000_0000),
             ],
-            short_castle: true,
-            long_castle: true,
-            auto_queen: true,
+            castling: CastlingRights::Both,
         }
     }
 
@@ -84,20 +76,8 @@ impl Player {
     pub fn place_piece(&mut self, piece: Piece, square: u8) {
         self.bb[piece as usize].set_bit(square, true);
     }
-    pub fn move_piece_unchecked(&mut self, from: u8, to: u8) {
+    pub fn move_piece(&mut self, from: u8, to: u8) {
         let p = self.remove_piece(from).unwrap();
-        if p == Piece::King {
-            self.long_castle = false;
-            self.short_castle = false;
-        }
-        if p == Piece::Rook {
-            if from == Board::A1 || from == Board::A8 {
-                self.long_castle = false;
-            }
-            if from ==  Board::H1 || from == Board::H8 {
-                self.short_castle = false;
-            }
-        }
         self.place_piece(p, to);
     }
     pub fn get_piece(&self, square: u8) -> Option<Piece>

@@ -1,4 +1,4 @@
-use crate::board::{Board, Piece};
+use crate::board::{Board, Piece, CastlingRights};
 use crate::player::Player;
 
 impl Board {
@@ -9,6 +9,7 @@ impl Board {
 
             white_turn: true,
             history: Vec::new(),
+            en_passant: None,
         }
     }
     pub fn new_empty() -> Self {
@@ -18,6 +19,7 @@ impl Board {
 
             white_turn: true,
             history: Vec::new(),
+            en_passant: None,
         }
     }
     pub fn new_from_fen(fen: &str) -> Result<Self, String> {
@@ -26,6 +28,8 @@ impl Board {
 
         let piece_placement = fields.next().ok_or("Missing piece placement in FEN")?;
         let active_color = fields.next().unwrap_or("w");
+        let castling_rights = fields.next().unwrap_or("-");
+        let en_passant = fields.next().unwrap_or("-");
 
         if piece_placement.split('/').count() != 8 {
             return Err("Invalid FEN: expected 8 ranks".to_string());
@@ -74,6 +78,34 @@ impl Board {
         }
 
         board.white_turn = active_color == "w";
+        board.white.castling = match (castling_rights.contains('K'), castling_rights.contains('Q')) {
+            (true, true) => CastlingRights::Both,
+            (true, false) => CastlingRights::KingSide,
+            (false, true) => CastlingRights::QueenSide,
+            (false, false) => CastlingRights::None,
+        };
+        board.black.castling = match (castling_rights.contains('k'), castling_rights.contains('q')) {
+            (true, true) => CastlingRights::Both,
+            (true, false) => CastlingRights::KingSide,
+            (false, true) => CastlingRights::QueenSide,
+            (false, false) => CastlingRights::None,
+        };
+        board.en_passant = if en_passant != "-" {
+            let bytes = en_passant.as_bytes();
+            if bytes.len() != 2 {
+                return Err(format!("Invalid en passant square: {}", en_passant));
+            }
+            let file = bytes[0];
+            let rank = bytes[1];
+            if !(b'a'..=b'h').contains(&file) || !(b'1'..=b'8').contains(&rank) {
+                return Err(format!("Invalid en passant square: {}", en_passant));
+            }
+            let file_idx = file - b'a';
+            let rank_idx = rank - b'1';
+            Some(rank_idx * 8 + file_idx)
+        } else {
+            None
+        };
         Ok(board)
     }
 }

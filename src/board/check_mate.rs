@@ -28,8 +28,8 @@ impl Board {
 
         for from in player.pieces() {
             let possible_moves = self.generate_moves_from(from);
-            for to in possible_moves {{
-                if self.try_move_piece(from, to) == Ok(()) {
+            for m in possible_moves {{
+                if self.make_move_unchecked(m) == Ok(()) {
                     let in_check = self.is_in_check(white);
                     self.undo_move();
                     if !in_check { return false; }
