@@ -1,10 +1,12 @@
 use std::ops::*;
 
+use crate::tile::Tile;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bitboard(pub u64);
 impl BitAnd for Bitboard
 {
-    type Output = Self;
+    type Output = Bitboard;
 
     fn bitand(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 & rhs.0)
@@ -79,7 +81,7 @@ impl Not for &Bitboard {
 }
 
 impl Iterator for Bitboard {
-    type Item = u8;
+    type Item = Tile;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.0 == 0 {
@@ -87,7 +89,7 @@ impl Iterator for Bitboard {
         } else {
             let s = self.0.trailing_zeros() as u8;
             self.0 &= self.0 - 1;
-            Some(s)
+            Tile::new_index(s)
         }
     }
 }
@@ -97,27 +99,27 @@ impl Bitboard {
     pub fn new(bits: u64) -> Self {
         Self(bits)
     }
-    pub fn from_bit(bit: u8) -> Self {
-        Self(1u64 << bit)
+    pub fn from_bit(bit: Tile) -> Self {
+        Self(1u64 << bit.0)
     }
-    pub fn to_bit(&self) -> Option<u8> {
+    pub fn to_bit(&self) -> Option<Tile> {
         if self.count_ones() == 1 {
-            Some(self.0.trailing_zeros() as u8)
+            Tile::new_index(self.0.trailing_zeros() as u8)
         } else {
             None
         }
     }
-    pub fn set_bit(&mut self, bit: u8, value: bool) {
-        let mask = 1u64 << bit;
+    pub fn set_bit(&mut self, bit: Tile, value: bool) {
+        let mask = bit.as_mask();
         if value {
-            self.0 |= mask;
+            *self |= mask;
         } else {
-            self.0 &= !mask;
+            *self &= !mask;
         }
     }
-    pub fn get_bit(&self, bit: u8) -> bool {
-        let mask = 1u64 << bit;
-        return self.0 & mask != 0
+    pub fn get_bit(&self, bit: Tile) -> bool {
+        let mask = bit.as_mask();
+        return self & &mask != Bitboard::EMPTY
     }
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()

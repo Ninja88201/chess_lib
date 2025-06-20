@@ -1,14 +1,14 @@
-use crate::board::{Board, Piece};
+use crate::{board::{Board, Piece}, tile::Tile};
 
 impl Board {
 
-    fn attacks_square(&self, from: u8, piece: Piece, white: bool, target: u8) -> bool {
+    fn attacks_tile(&self, from: Tile, piece: Piece, white: bool, target: Tile) -> bool {
         self.generate_attacks_from_piece(from, piece, white).get_bit(target)
     }
-    pub fn square_attacked(&self, square: u8, by_white: bool) -> bool {
+    pub fn tile_attacked(&self, square: Tile, by_white: bool) -> bool {
         let (opponent, _) = self.get_players(by_white);
         for s in opponent.pieces() {
-            if self.attacks_square(s, opponent.get_piece(s).unwrap(), by_white, square) {
+            if self.attacks_tile(s, opponent.get_piece(s).unwrap(), by_white, square) {
                 return true;
             }
         }
@@ -17,7 +17,7 @@ impl Board {
 
     pub fn is_in_check(&self, white: bool) -> bool {
         let (player, _) = self.get_players(white);
-        return self.square_attacked(player.get_king_square(), !white);
+        return self.tile_attacked(player.get_king_tile(), !white);
     }
     pub fn is_checkmate(&mut self, white: bool) -> bool {
         if !self.is_in_check(white) {

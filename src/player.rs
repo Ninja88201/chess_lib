@@ -1,4 +1,4 @@
-use crate::{bitboard::Bitboard, board::{CastlingRights, Piece}};
+use crate::{bitboard::Bitboard, board::{CastlingRights, Piece}, tile::Tile};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {
@@ -55,41 +55,41 @@ impl Player {
             | self.bb[Piece::King as usize]
     }
 
-    pub fn remove_piece(&mut self, square: u8) -> Option<Piece> {
+    pub fn remove_piece(&mut self, tile: Tile) -> Option<Piece> {
         for i in 0..self.bb.len() {
-            if self.bb[i].get_bit(square) {
-                self.bb[i].set_bit(square, false);
+            if self.bb[i].get_bit(tile) {
+                self.bb[i].set_bit(tile, false);
                 return Some(Piece::from_index(i));
             }
         }
         None
     }
-    pub fn remove_piece_type(&mut self, piece: Piece, square: u8) -> Option<Piece> {
-        if self.bb[piece as usize].get_bit(square) {
-            self.bb[piece as usize].set_bit(square, false);
+    pub fn remove_piece_type(&mut self, piece: Piece, tile: Tile) -> Option<Piece> {
+        if self.bb[piece as usize].get_bit(tile) {
+            self.bb[piece as usize].set_bit(tile, false);
             return Some(piece);
         }
 
         None
     }
 
-    pub fn place_piece(&mut self, piece: Piece, square: u8) {
-        self.bb[piece as usize].set_bit(square, true);
+    pub fn place_piece(&mut self, piece: Piece, tile: Tile) {
+        self.bb[piece as usize].set_bit(tile, true);
     }
-    pub fn move_piece(&mut self, from: u8, to: u8) {
+    pub fn move_piece(&mut self, from: Tile, to: Tile) {
         let p = self.remove_piece(from).unwrap();
         self.place_piece(p, to);
     }
-    pub fn get_piece(&self, square: u8) -> Option<Piece>
+    pub fn get_piece(&self, tile: Tile) -> Option<Piece>
     {
         for i in 0..self.bb.len() {
-            if self.bb[i].get_bit(square) {
+            if self.bb[i].get_bit(tile) {
                 return Some(Piece::from_index(i));
             }
         }
         None
     }
-    pub fn get_king_square(&self) -> u8 {
+    pub fn get_king_tile(&self) -> Tile {
         match self.bb[Piece::King as usize].to_bit() {
             Some(s) => s,
             None => panic!("Can only have 1 king"),

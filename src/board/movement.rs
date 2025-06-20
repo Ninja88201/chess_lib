@@ -1,18 +1,19 @@
 use crate::bitboard::Bitboard;
 use crate::board::{Board, CastlingRights, Move, MoveError, Piece};
 use crate::player::Player;
+use crate::tile::Tile;
 
 impl Board {
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
 
-        for rank in (0..8).rev() {
+        for y in (0..8).rev() {
             let mut empty = 0;
 
-            for file in 0..8 {
-                let square = rank * 8 + file;
+            for x in 0..8 {
+                let tile = Tile::new_xy(x, y).unwrap();
 
-                match self.get_piece_at_square(square) {
+                match self.get_piece_at_tile(tile) {
                     Some((piece, is_white)) => {
                         if empty > 0 {
                             fen.push_str(&empty.to_string());
@@ -30,7 +31,7 @@ impl Board {
                 fen.push_str(&empty.to_string());
             }
 
-            if rank != 0 {
+            if y != 0 {
                 fen.push('/');
             }
         }
@@ -54,9 +55,9 @@ impl Board {
             false => (&mut self.black, &mut self.white),
         }
     }
-    pub fn get_piece_at_square(&self, square: u8) -> Option<(Piece, bool)> {
-        let white_piece = self.white.get_piece(square);
-        let black_piece = self.black.get_piece(square);
+    pub fn get_piece_at_tile(&self, tile: Tile) -> Option<(Piece, bool)> {
+        let white_piece = self.white.get_piece(tile);
+        let black_piece = self.black.get_piece(tile);
         match (white_piece, black_piece) {
             (None, None) => return None,
             (None, Some(p)) => return Some((p, false)),
@@ -64,20 +65,15 @@ impl Board {
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-    pub async fn try_move_piece<C, F: AsyncFn(u8, C) -> Option<Piece>>
-    (&mut self, from: u8, to: u8, promotion: F, context: C) -> Result<(), MoveError> {
+    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>>
+    (&mut self, from: Tile, to: Tile, promotion: F, context: C) -> Result<(), MoveError> {
         if from == to {
-            return Err(MoveError::SameTile);
+            return Err(MoveError::SameTile)
         }
-        let result = self.get_piece_at_square(from);
-        if let Some((p, _)) = result {
-            let back_rank: u8 = match self.white_turn {
-                true => 7,
-                false => 0,
-            };
+        let result = self.get_piece_at_tile(from);
+        if let Some((p, w)) = result {
             let mut promote = None;
-            let mut capture = None;
-            if to / 8 == back_rank && p == Piece::Pawn{
+            if to.is_promotion(w) && p == Piece::Pawn && from.get_neighbours().get_bit(to){
                 let promotion = promotion(to, context);
                 match promotion.await {
                     Some(p) => {
@@ -86,20 +82,27 @@ impl Board {
                     None => return Err(MoveError::Cancelled),
                 }
             }
-            capture = match self.get_piece_at_square(to) {
+            let mut capture: Option<Piece> = None;
+            capture = match self.get_piece_at_tile(to) {
                 Some((p, w)) => {
                     if w == self.white_turn {
                         return Err(MoveError::FriendlyCapture);
                     }
                     Some(p)
                 },
-                None => None,
-            };
-            if let Some(ep) = self.en_passant {
-                if to == ep && p == Piece::Pawn {
-                    capture = Some(Piece::Pawn);
+                None => {
+                    if let Some(ep) = self.en_passant {
+                        if to == ep && p == Piece::Pawn {
+                            Some(Piece::Pawn)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 }
-            }
+            };
+            
             let mov = Move::new(
                 self.white_turn, 
                 from, 
@@ -134,47 +137,44 @@ impl Board {
     }
     pub fn make_move_unchecked(&mut self, mov: Move) -> Result<(), MoveError> {
         if mov.from == mov.to {
+            return Err(MoveError::SameTile);
+        }
+        
+        let piece_moved = self.get_piece_at_tile(mov.from);
+        let legal_moves = self.generate_moves_from(mov.from);
+        
+        
+        
+        
+        if !legal_moves.contains(&mov) {
             return Err(MoveError::IllegalMove);
         }
-
-        let piece_moved = self.get_piece_at_square(mov.from);
-        // let target_piece = self.get_piece_at_square(mov.to);
-        let legal_moves = self.generate_moves_from(mov.from);
-
-        
         if legal_moves.len() == 0 && !self.is_in_check(self.white_turn) {
             println!("Stalemate");
             return Err(MoveError::Stalemate);
         }
-
-        let Some((_, is_white)) = piece_moved else {
-            return Err(MoveError::IllegalMove);
-        };
-        if is_white != self.white_turn {
-            return Err(MoveError::WrongTurn);
-        }
-        if !legal_moves.contains(&mov) {
-            return Err(MoveError::IllegalMove);
-        }
-
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
             (&mut self.black, &mut self.white)
         };
 
-        if let Some(_) = mov.capture {
-            if let Some(s) = mov.en_passant {
-                let direction: i8 = match self.white_turn {
-                    true => 8,
-                    false => -8,
-                };
-                opponent.remove_piece((s as i8 - direction) as u8);
+        if let Some((_, is_white)) = piece_moved {
+            if is_white != self.white_turn {
+                return Err(MoveError::WrongTurn);
             }
-            else {
-                opponent.remove_piece(mov.to);
+            if let Some(p) = mov.capture {
+                if let Some(t) = mov.en_passant && t == mov.to {
+                    opponent.remove_piece_type(p, t.backward(is_white).unwrap());
+                }
+                else {
+                    opponent.remove_piece_type(p, mov.to);
+                }
             }
-        }
+            // return Err(MoveError::IllegalMove);
+        };
+
+        
 
         player.move_piece(mov.from, mov.to);
         self.en_passant = None;
@@ -221,12 +221,8 @@ impl Board {
                 }
             }
         }
-        if mov.piece == Piece::Pawn && !self.get_neighbours(mov.from).get_bit(mov.to) {
-            let direction: i8 = match self.white_turn {
-                true => 8,
-                false => -8,
-            };
-            self.en_passant = Some((mov.to as i8 - direction) as u8);
+        if mov.piece == Piece::Pawn && !mov.from.get_neighbours().get_bit(mov.to) {
+            self.en_passant = Some(mov.to.backward(self.white_turn).unwrap());
         }
         self.history.push(mov);
 
@@ -250,11 +246,12 @@ impl Board {
             // Restore captured piece if any
             if let Some(captured) = last_move.capture {
                 if let Some(passant) = last_move.en_passant {
-                    let direction: i8 = match white {
-                        true => 8,
-                        false => -8,
-                    };
-                    opponent.place_piece(Piece::Pawn, (passant as i8 + direction) as u8);
+                    if last_move.to == passant {
+                        opponent.place_piece(Piece::Pawn, passant.forward(white).unwrap());
+                    }
+                    else {
+                        opponent.place_piece(captured, last_move.to);
+                    }
                 }
                 else {
                     opponent.place_piece(captured, last_move.to);

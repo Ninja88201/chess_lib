@@ -8,14 +8,14 @@ pub mod helper;
 
 use std::fmt;
 
-use crate::player::Player;
+use crate::{player::Player, tile::Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Board {
     pub white: Player,
     pub black: Player,
 
     pub white_turn: bool,
-    pub en_passant: Option<u8>,
+    pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,11 +55,11 @@ impl Piece {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
     pub white_turn: bool,
-    pub from: u8,
-    pub to: u8,
+    pub from: Tile,
+    pub to: Tile,
     pub piece: Piece,
     pub capture: Option<Piece>,
-    pub en_passant: Option<u8>,
+    pub en_passant: Option<Tile>,
 
     pub prev_white_castle: CastlingRights,
     pub prev_black_castle: CastlingRights,
@@ -68,11 +68,11 @@ pub struct Move {
 impl Move {
     pub fn new(
         white_turn: bool,
-        from: u8,
-        to: u8,
+        from: Tile,
+        to: Tile,
         piece: Piece,
         capture: Option<Piece>,
-        en_passant: Option<u8>,
+        en_passant: Option<Tile>,
         prev_white_castle: CastlingRights,
         prev_black_castle: CastlingRights,
         promoted_to: Option<Piece>,

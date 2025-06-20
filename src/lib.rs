@@ -1,6 +1,7 @@
 pub mod board;
 pub mod player;
 pub mod bitboard;
+pub mod tile;
 
 #[cfg(test)]
 mod tests {

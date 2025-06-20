@@ -1,5 +1,6 @@
 use crate::board::{Board, Piece, CastlingRights};
 use crate::player::Player;
+use crate::tile::Tile;
 
 impl Board {
     pub fn new() -> Self {
@@ -61,9 +62,9 @@ impl Board {
                         let rank = 7 - rank_idx as u8; // Convert to 0-indexed from top
                         let square = rank * 8 + file;
                         if is_white {
-                            board.white.place_piece(piece, square);
+                            board.white.place_piece(piece, Tile(square));
                         } else {
-                            board.black.place_piece(piece, square);
+                            board.black.place_piece(piece, Tile(square));
                         }
 
                         file += 1;
@@ -102,7 +103,7 @@ impl Board {
             }
             let file_idx = file - b'a';
             let rank_idx = rank - b'1';
-            Some(rank_idx * 8 + file_idx)
+            Some(Tile(rank_idx * 8 + file_idx))
         } else {
             None
         };

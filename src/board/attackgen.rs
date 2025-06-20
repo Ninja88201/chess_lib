@@ -1,65 +1,54 @@
-use crate::{bitboard::Bitboard, board::{Board, Piece}};
+use crate::{bitboard::Bitboard, board::{Board, Piece}, tile::Tile};
 
 impl Board {
 
     pub fn generate_attacks(&self, white: bool) -> Bitboard {
         let (player, _) = self.get_players(white);
         let mut attacks = Bitboard::EMPTY;
-        for s in player.pieces() {
-            attacks |= self.generate_attacks_from(s);
+        for t in player.pieces() {
+            attacks |= self.generate_attacks_from(t);
         }
         attacks
     }
-    pub fn generate_attacks_from(&self, square: u8) -> Bitboard {
-        let (piece, white) = match self.get_piece_at_square(square) {
+    pub fn generate_attacks_from(&self, tile: Tile) -> Bitboard {
+        let (piece, white) = match self.get_piece_at_tile(tile) {
             Some(x) => x,
             None => return Bitboard::EMPTY,
         };
-        return self.generate_attacks_from_piece(square, piece, white);
+        return self.generate_attacks_from_piece(tile, piece, white);
     }
-    pub fn generate_attacks_from_piece(&self, square: u8, piece: Piece, white: bool) -> Bitboard {
+    pub fn generate_attacks_from_piece(&self, tile: Tile, piece: Piece, white: bool) -> Bitboard {
         match piece {
-            Piece::Pawn => self.generate_pawn_attacks(square, white),
-            Piece::Knight => self.generate_knight_attacks(square),
-            Piece::Bishop => self.generate_sliding_attacks(square, false, true),
-            Piece::Rook => self.generate_sliding_attacks(square, true, false),
-            Piece::Queen => self.generate_sliding_attacks(square, true, true),
-            Piece::King => self.generate_king_attacks(square),
+            Piece::Pawn => self.generate_pawn_attacks(tile, white),
+            Piece::Knight => self.generate_knight_attacks(tile),
+            Piece::Bishop => self.generate_sliding_attacks(tile, false, true),
+            Piece::Rook => self.generate_sliding_attacks(tile, true, false),
+            Piece::Queen => self.generate_sliding_attacks(tile, true, true),
+            Piece::King => self.generate_king_attacks(tile),
         }
     }
-    fn generate_pawn_attacks(&self, square: u8, white: bool) -> Bitboard {
+    fn generate_pawn_attacks(&self, tile: Tile, white: bool) -> Bitboard {
         let mut attacks = Bitboard::EMPTY;
-        let direction: i8 = match white {
-            true => 8,
-            false => -8,
-        };
-
-        for side in [-1, 1] {
-            let cap_square = square as i8 + direction + side;
-            let file = square % 8;
-            if cap_square >= 0
-                && cap_square < 64
-                && (file != 0 || side != -1)
-                && (file != 7 || side != 1)
-            {
-                attacks.set_bit(cap_square as u8, true);
-            }
+        if let Some(t) = tile.forward(white).and_then(|t| t.left(white)) {
+            attacks.set_bit(t, true);
+        }
+        if let Some(t) = tile.forward(white).and_then(|t| t.right(white)) {
+            attacks.set_bit(t, true);
         }
 
         attacks
     }
-    fn generate_knight_attacks(&self, square: u8) -> Bitboard {
+    fn generate_knight_attacks(&self, tile: Tile) -> Bitboard {
         let mut attacks = Bitboard::EMPTY;
-        let rank = square / 8;
-        let file = square % 8;
-
+        let (x, y) = tile.get_coords();
         for (dx, dy) in &Board::KNIGHT_OFFSETS {
-            let new_file = file as i8 + dx;
-            let new_rank = rank as i8 + dy;
-
-            if (0..8).contains(&new_file) && (0..8).contains(&new_rank) {
-                let dest = (new_rank * 8 + new_file) as u8;
-                attacks.set_bit(dest, true);
+            let nx = (x as i8) + dx;
+            let ny = y as i8 + dy;
+            if nx < 0 || ny < 0 { continue; }
+            let dest = Tile::new_xy(nx as u8, ny as u8);
+            
+            if let Some(t) = dest {
+                attacks.set_bit(t, true);
             }
         }
 
@@ -67,36 +56,24 @@ impl Board {
     }
     fn generate_sliding_attacks(
         &self,
-        square: u8,
+        tile: Tile,
         straight: bool,
         diagonal: bool,
     ) -> Bitboard {
         let mut attacks = Bitboard::EMPTY;
-        let start_file = square % 8;
 
-        const STRAIGHT_DIRECTIONS: &[(i8, i8)] = &[
-            (8, 0),   // up
-            (-8, 0),  // down
-            (1, 1),   // right
-            (-1, -1), // left
-        ];
-
-        const DIAGONAL_DIRECTIONS: &[(i8, i8)] = &[
-            (9, 1),   // up-right
-            (-9, -1), // down-left
-            (7, -1),  // up-left
-            (-7, 1),  // down-right
-        ];
+        const STRAIGHT_DELTAS: &[i8] = &[8, -8, 1, -1];      // up, down, right, left
+        const DIAGONAL_DELTAS: &[i8] = &[9, -9, 7, -7];      // diag up-right, down-left, up-left, down-right
 
         if straight {
-            for &(delta, file_change) in STRAIGHT_DIRECTIONS {
-                attacks |= self.slide_in_direction_attack(square, delta, file_change, start_file);
+            for &delta in STRAIGHT_DELTAS {
+                attacks |= self.slide_in_direction_attack(tile, delta);
             }
         }
 
         if diagonal {
-            for &(delta, file_change) in DIAGONAL_DIRECTIONS {
-                attacks |= self.slide_in_direction_attack(square, delta, file_change, start_file);
+            for &delta in DIAGONAL_DELTAS {
+                attacks |= self.slide_in_direction_attack(tile, delta);
             }
         }
 
@@ -104,28 +81,38 @@ impl Board {
     }
     fn slide_in_direction_attack(
         &self,
-        square: u8,
+        tile: Tile,
         delta: i8,
-        file_change: i8,
-        start_file: u8,
     ) -> Bitboard {
         let mut result = Bitboard::EMPTY;
-        let mut sq = square as i8;
-        let mut current_file = start_file as i8;
+        let mut curr = Some(tile);
 
         loop {
-            sq += delta;
-            current_file += file_change;
-
-            if sq < 0 || sq >= 64 || current_file < 0 || current_file >= 8 {
+            if let Some(c) = curr {
+                curr = match delta {
+                    8 => c.forward(true),
+                    -8 => c.backward(true),
+                    1 => c.right(true),
+                    -1 => c.left(true),
+    
+                    9 => c.forward(true).and_then(|t| t.right(true)),
+                    -9 => c.backward(true).and_then(|t| t.left(true)),
+                    7 => c.forward(true).and_then(|t| t.left(true)),
+                    -7 => c.backward(true).and_then(|t| t.right(true)),
+                    _ => panic!("Not a valid delta")
+                };
+            }
+            else {
                 break;
             }
-
-            let dest = sq as u8;
-
-            result.set_bit(dest, true);
-
-            if self.occupied().get_bit(dest) {
+            if let Some(c) = curr {
+                result.set_bit(c, true);
+    
+                if self.occupied().get_bit(c) {
+                    break;
+                }    
+            }
+            else {
                 break;
             }
         }
@@ -133,22 +120,7 @@ impl Board {
         result
     }
 
-    fn generate_king_attacks(&self, square: u8) -> Bitboard {
-        let mut attacks = Bitboard::EMPTY;
-
-        for d in Board::KING_OFFSETS {
-            let dest = square as i8 + d;
-
-            let dest_file = dest % 8;
-            let from_file = square % 8;
-
-            if (0..64).contains(&dest)
-                && (from_file as i8 - dest_file as i8).abs() <= 1
-            {
-                attacks.set_bit(dest as u8, true);
-            }
-        }
-
-        attacks
+    fn generate_king_attacks(&self, tile: Tile) -> Bitboard {
+        tile.get_neighbours()
     }
 }

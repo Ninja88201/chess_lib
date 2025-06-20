@@ -1,18 +1,18 @@
-use crate::board::{Board, Piece, Move};
+use crate::{board::{Board, Move, Piece}, tile::Tile};
 
 impl Board {
     pub fn generate_legal_moves(&self, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
         let (player, _) = self.get_players(white);
-        for s in player.pieces() {
-            for m in self.generate_legal_moves_from(s) {
+        for t in player.pieces() {
+            for m in self.generate_legal_moves_from(t) {
                 moves.push(m);
             }
         }
         moves
     }
-    pub fn generate_legal_moves_from(&self, from: u8) -> Vec<Move> {
-        let piece = self.get_piece_at_square(from);
+    pub fn generate_legal_moves_from(&self, from: Tile) -> Vec<Move> {
+        let piece = self.get_piece_at_tile(from);
         if let Some((_, white)) = piece {
             let mut legal_moves = Vec::new();
             for m in self.generate_moves_from(from) {
@@ -41,14 +41,14 @@ impl Board {
         }
         moves
     }
-    pub fn generate_moves_from(&self, square: u8) -> Vec<Move> {
-        let (piece, white) = match self.get_piece_at_square(square) {
+    pub fn generate_moves_from(&self, square: Tile) -> Vec<Move> {
+        let (piece, white) = match self.get_piece_at_tile(square) {
             Some(x) => x,
             None => return Vec::new(),
         };
         return self.generate_moves_from_piece(square, piece, white);
     }
-    pub fn generate_moves_from_piece(&self, square: u8, piece: Piece, white: bool) -> Vec<Move> {
+    pub fn generate_moves_from_piece(&self, square: Tile, piece: Piece, white: bool) -> Vec<Move> {
         match piece {
             Piece::Pawn => self.generate_pawn_moves(square, white),
             Piece::Knight => self.generate_knight_moves(square, white),
@@ -58,39 +58,17 @@ impl Board {
             Piece::King => self.generate_king_moves(square, white),
         }
     }
-    fn generate_pawn_moves(&self, square: u8, white: bool) -> Vec<Move> {
+    fn generate_pawn_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
-        // let (_, _) = self.get_players(white);
-        let direction: i8 = match white {
-            true => 8,
-            false => -8,
-        };
-        let promotion: u8 = match white {
-            true => 7,
-            false => 0,
-        };
 
-        let target = square as i8 + direction;
-        if target >= 0 && target < 64 && !self.occupied().get_bit(target as u8) {
-            let new_rank = (target / 8) as u8;
-
-            if new_rank == promotion {
-                moves.push(Move::new(
-                    self.white_turn,
-                    square,
-                    target as u8,
-                    Piece::Pawn,
-                    None,
-                    self.en_passant,
-                    self.white.castling,
-                    self.black.castling,
-                    Some(Piece::Queen)
-                ));
+        let target = tile.forward(white).unwrap();
+        if !self.occupied().get_bit(target) {
+            if target.is_promotion(white) {
                 for p in 1..5 {
                     moves.push(Move::new(
                         self.white_turn,
-                        square,
-                        target as u8,
+                        tile,
+                        target,
                         Piece::Pawn,
                         None,
                         self.en_passant,
@@ -104,8 +82,8 @@ impl Board {
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        target as u8,
+                        tile,
+                        target,
                         Piece::Pawn,
                         None,
                         self.en_passant,
@@ -119,20 +97,15 @@ impl Board {
         }
 
         // Double push
-        let start_rank = match white {
-            true => 1,
-            false => 6,
-        };
-        if square / 8 == start_rank {
-            let double_target = square as i8 + 2 * direction;
-            if (0..64).contains(&double_target)
-                && !self.occupied().get_bit(target as u8) && !self.occupied().get_bit(double_target as u8)
+        if tile.is_pawn_start(white) {
+            let double_target = tile.forward(white).and_then(|t| t.forward(white)).unwrap();
+            if !self.occupied().get_bit(target as Tile) && !self.occupied().get_bit(double_target as Tile)
             {
                 moves.push(
                 Move::new(
                     self.white_turn,
-                    square,
-                    double_target as u8,
+                    tile,
+                    double_target,
                     Piece::Pawn,
                     None,
                     self.en_passant,
@@ -145,20 +118,14 @@ impl Board {
         }
 
         // Captures
-        for side in [-1, 1] {
-            let cap_square = square as i8 + direction + side;
-            let file = square % 8;
-            if cap_square >= 0
-                && cap_square < 64
-                && (file != 0 || side != -1)
-                && (file != 7 || side != 1)
-            {
+        for caps in [tile.forward(white).and_then(|t| t.left(white)), tile.forward(white).and_then(|t| t.right(white))] {
+            if let Some(t) = caps {
                 if let Some(ep) = self.en_passant {
-                    if cap_square as u8 == ep {
+                    if t == ep {
                         moves.push(Move::new(
                                 self.white_turn,
-                                square,
-                                cap_square as u8,
+                                tile,
+                                t,
                                 Piece::Pawn,
                                 Some(Piece::Pawn),
                                 self.en_passant,
@@ -168,17 +135,15 @@ impl Board {
                             ));
                     }
                 }
-                if self.is_square_occupied_by_enemy(cap_square as u8, white) {
-                    let new_rank = (cap_square / 8) as u8;
-
-                    if new_rank == promotion {
+                if self.is_square_occupied_by_enemy(t, white) {
+                    if t.is_promotion(white) {
                         for p in 1..5 {
                             moves.push(Move::new(
                                 self.white_turn,
-                                square,
-                                cap_square as u8,
+                                tile,
+                                t,
                                 Piece::Pawn,
-                                Some(self.get_piece_at_square(cap_square as u8).unwrap().0),
+                                Some(self.get_piece_at_tile(t).unwrap().0),
                                 self.en_passant,
                                 self.white.castling,
                                 self.black.castling,
@@ -190,10 +155,10 @@ impl Board {
                         moves.push(
                             Move::new(
                                 self.white_turn,
-                                square,
-                                cap_square as u8,
+                                tile,
+                                t,
                                 Piece::Pawn,
-                                Some(self.get_piece_at_square(cap_square as u8).unwrap().0),
+                                Some(self.get_piece_at_tile(t).unwrap().0),
                                 self.en_passant,
                                 self.white.castling,
                                 self.black.castling,
@@ -203,32 +168,27 @@ impl Board {
                     }
                 }
             }
-        }
 
+            }
         moves
     }
-    fn generate_knight_moves(&self, square: u8, white: bool) -> Vec<Move> {
+    fn generate_knight_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
-        let rank = square / 8;
-        let file = square % 8;
-
-        for (dx, dy) in &Board::KNIGHT_OFFSETS {
-            let new_file = file as i8 + dx;
-            let new_rank = rank as i8 + dy;
-
-            if (0..8).contains(&new_file) && (0..8).contains(&new_rank) {
-                let dest = (new_rank * 8 + new_file) as u8;
-                if !self.is_square_occupied_by_friendly(dest, white) {
+        let (x, y) = tile.get_coords();
+        for (dx, dy) in Board::KNIGHT_OFFSETS {
+            let nx = x as i8 + dx;
+            let ny = y as i8 + dy;
+            if nx < 0 || ny < 0 { continue; }
+            let dest = Tile::new_xy(nx as u8, ny as u8);
+            if let Some(t) = dest {
+                if !self.is_square_occupied_by_friendly(t, white) {
                     moves.push(
                         Move::new(
                             self.white_turn,
-                            square,
-                            dest,
+                            tile,
+                            t,
                             Piece::Knight,
-                            match self.get_piece_at_square(dest) {
-                                Some((p, _)) => Some(p),
-                                None => None,
-                            },
+                            self.get_piece_at_tile(t).map(|(p, _)| p),
                             self.en_passant,
                             self.white.castling,
                             self.black.castling,
@@ -243,7 +203,7 @@ impl Board {
     }
     fn generate_sliding_moves(
         &self,
-        square: u8,
+        tile: Tile,
         white: bool,
         straight: bool,
         diagonal: bool,
@@ -255,13 +215,13 @@ impl Board {
 
         if straight {
             for &delta in STRAIGHT_DELTAS {
-                moves.extend(self.slide_in_direction_moves(square, white, delta));
+                moves.extend(self.slide_in_direction_moves(tile, white, delta));
             }
         }
 
         if diagonal {
             for &delta in DIAGONAL_DELTAS {
-                moves.extend(self.slide_in_direction_moves(square, white, delta));
+                moves.extend(self.slide_in_direction_moves(tile, white, delta));
             }
         }
 
@@ -269,83 +229,72 @@ impl Board {
     }
 
     // Helper function to slide in a given direction
-    fn slide_in_direction_moves(&self, square: u8, white: bool, delta: i8) -> Vec<Move> {
+    fn slide_in_direction_moves(&self, tile: Tile, white: bool, delta: i8) -> Vec<Move> {
         let mut result = Vec::new();
-        let mut current = square as i8;
-        let mut prev_file = current % 8;
+        let mut current = tile;
 
         loop {
-            let next = current + delta;
+            let next = match delta {
+                8 => current.forward(true),
+                -8 => current.backward(true),
+                1 => current.right(true),
+                -1 => current.left(true),
 
-            if next < 0 || next >= 64 {
+                9 => current.forward(true).and_then(|t| t.right(true)),
+                -9 => current.backward(true).and_then(|t| t.left(true)),
+                7 => current.forward(true).and_then(|t| t.left(true)),
+                -7 => current.backward(true).and_then(|t| t.right(true)),
+                _ => panic!("Not a valid delta")
+            };
+            if let Some(t) = next {
+                if self.is_square_occupied_by_friendly(t, white) {
+                    break;
+                }
+    
+                result.push(Move::new(
+                    self.white_turn,
+                    tile,
+                    t,
+                    self.get_piece_at_tile(tile).unwrap().0,
+                    self.get_piece_at_tile(t).map(|(p, _)| p),
+                    self.en_passant,
+                    self.white.castling,
+                    self.black.castling,
+                    None,
+                ));
+    
+                if self.is_square_occupied_by_enemy(t, white) {
+                    break;
+                }
+                current = t;
+            }
+            else {
                 break;
             }
 
-            let next_file = next % 8;
 
-            // Prevent wrapping around left/right edges
-            if (delta == 1 || delta == -1 || delta == 9 || delta == -9 || delta == 7 || delta == -7)
-                && (next_file - prev_file).abs() != 1
-            {
-                break;
-            }
-
-            let dest = next as u8;
-
-            if self.is_square_occupied_by_friendly(dest, white) {
-                break;
-            }
-
-            result.push(Move::new(
-                self.white_turn,
-                square,
-                dest,
-                self.get_piece_at_square(square).unwrap().0,
-                self.get_piece_at_square(dest).map(|(p, _)| p),
-                self.en_passant,
-                self.white.castling,
-                self.black.castling,
-                None,
-            ));
-
-            if self.is_square_occupied_by_enemy(dest, white) {
-                break;
-            }
-
-            current = next;
-            prev_file = next_file;
         }
 
         result
     }
-    fn generate_king_moves(&self, square: u8, white: bool) -> Vec<Move> {
+    fn generate_king_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
         let (player, _) = self.get_players(white);
 
-        for d in Board::KING_OFFSETS {
-            let dest = square as i8 + d;
-            
-            // Ensure the king moves only one square, not more
-            let dest_file = dest % 8;
-            let from_file = square % 8;
-
-            if (0..64).contains(&dest)
-                && (from_file as i8 - dest_file as i8).abs() <= 1
-                && !self.is_square_occupied_by_friendly(dest as u8, white)
-                && !self.square_attacked(dest as u8, !white)
+        for t in tile.get_neighbours(){
+            if !t.in_board() { continue; }
+            if !self.is_square_occupied_by_friendly(t, white)
+                && !self.tile_attacked(t, !white)
             {
-                // moves.set_bit(dest as u8, true);
+                // moves.set_bit(dest as Tile, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        dest as u8,
+                        tile,
+                        t,
                         Piece::King,
-                        match self.get_piece_at_square(dest as u8) {
-                            Some((p, _)) => Some(p),
-                            None => None,
-                        },
+                        self.get_piece_at_tile(t).map(|(p, _)| p),
                         self.en_passant,
                         self.white.castling,
                         self.black.castling,
@@ -356,22 +305,22 @@ impl Board {
         }
 
         // Castling
-        if white && square == Board::E1 {
+        if white && tile == Board::E1 {
             // Short (g1)
             if player.castling.short_castle()
-                && self.get_piece_at_square(Board::E1 + 1).is_none()
-                && self.get_piece_at_square(Board::E1 + 2).is_none()
-                && !self.square_attacked(Board::E1 + 1, false)
-                && !self.square_attacked(Board::E1 + 2, false)
+                && self.get_piece_at_tile(Board::F1).is_none()
+                && self.get_piece_at_tile(Board::G1).is_none()
+                && !self.tile_attacked(Board::F1, false)
+                && !self.tile_attacked(Board::G1, false)
             {
                 // moves.set_bit(Board::E1 + 2, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        Board::E1 + 2,
+                        tile,
+                        Board::G1,
                         Piece::King,
-                        match self.get_piece_at_square(Board::E1 + 2) {
+                        match self.get_piece_at_tile(Board::G1) {
                             Some((p, _)) => Some(p),
                             None => None,
                         },
@@ -384,20 +333,20 @@ impl Board {
             }
             // Long (c1)
             if player.castling.long_castle()
-                && self.get_piece_at_square(Board::E1 - 1).is_none()
-                && self.get_piece_at_square(Board::E1 - 2).is_none()
-                && self.get_piece_at_square(Board::E1 - 3).is_none()
-                && !self.square_attacked(Board::E1 - 1, false)
-                && !self.square_attacked(Board::E1 - 2, false)
+                && self.get_piece_at_tile(Board::D1).is_none()
+                && self.get_piece_at_tile(Board::C1).is_none()
+                && self.get_piece_at_tile(Board::B1).is_none()
+                && !self.tile_attacked(Board::D1, false)
+                && !self.tile_attacked(Board::C1, false)
             {
-                // moves.set_bit(Board::E1 - 2, true);
+                // moves.set_bit(Board::C1, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        Board::E1 - 2,
+                        tile,
+                        Board::C1,
                         Piece::King,
-                        match self.get_piece_at_square(Board::E1 - 2) {
+                        match self.get_piece_at_tile(Board::C1) {
                             Some((p, _)) => Some(p),
                             None => None,
                         },
@@ -410,22 +359,22 @@ impl Board {
             }
         }
 
-        if !white && square == Board::E8 {
+        if !white && tile == Board::E8 {
             // Short (g8)
             if player.castling.short_castle()
-                && self.get_piece_at_square(Board::E8 + 1).is_none()
-                && self.get_piece_at_square(Board::E8 + 2).is_none()
-                && !self.square_attacked(Board::E8 + 1, true)
-                && !self.square_attacked(Board::E8 + 2, true)
+                && self.get_piece_at_tile(Board::F8).is_none()
+                && self.get_piece_at_tile(Board::G8).is_none()
+                && !self.tile_attacked(Board::F8, true)
+                && !self.tile_attacked(Board::G8, true)
             {
-                // moves.set_bit(Board::E8 + 2, true);
+                // moves.set_bit(Board::G8, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        Board::E8 + 2,
+                        tile,
+                        Board::G8,
                         Piece::King,
-                        match self.get_piece_at_square(Board::E8 + 2) {
+                        match self.get_piece_at_tile(Board::G8) {
                             Some((p, _)) => Some(p),
                             None => None,
                         },
@@ -439,20 +388,20 @@ impl Board {
             }
             // Long (c8)
             if player.castling.long_castle()
-                && self.get_piece_at_square(Board::E8 - 1).is_none()
-                && self.get_piece_at_square(Board::E8 - 2).is_none()
-                && self.get_piece_at_square(Board::E8 - 3).is_none()
-                && !self.square_attacked(Board::E8 - 1, true)
-                && !self.square_attacked(Board::E8 - 2, true)
+                && self.get_piece_at_tile(Board::D8).is_none()
+                && self.get_piece_at_tile(Board::C8).is_none()
+                && self.get_piece_at_tile(Board::B8).is_none()
+                && !self.tile_attacked(Board::D8, true)
+                && !self.tile_attacked(Board::C8, true)
             {
-                // moves.set_bit(Board::E8 - 2, true);
+                // moves.set_bit(Board::C8, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
-                        square,
-                        Board::E8 - 2,
+                        tile,
+                        Board::C8,
                         Piece::King,
-                        match self.get_piece_at_square(Board::E8 - 2) {
+                        match self.get_piece_at_tile(Board::C8) {
                             Some((p, _)) => Some(p),
                             None => None,
                         },
@@ -467,12 +416,12 @@ impl Board {
 
         moves
     }
-    fn is_square_occupied_by_enemy(&self, square: u8, white: bool) -> bool {
+    fn is_square_occupied_by_enemy(&self, square: Tile, white: bool) -> bool {
         let (_, opponent) = self.get_players(white);
         opponent.pieces().get_bit(square)
     }
 
-    fn is_square_occupied_by_friendly(&self, square: u8, white: bool) -> bool {
+    fn is_square_occupied_by_friendly(&self, square: Tile, white: bool) -> bool {
         let (player, _) = self.get_players(white);
         player.pieces().get_bit(square)
     }

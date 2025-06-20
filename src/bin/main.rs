@@ -1,8 +1,8 @@
 use std::io::stdin;
-use std::pin::Pin;
 
 use chess_lib::bitboard::Bitboard;
 use chess_lib::board::{Board, Piece};
+use chess_lib::tile::Tile;
 use macroquad::prelude::*;
 use macroquad::rand::ChooseRandom;
 
@@ -13,16 +13,16 @@ const SPRITE_SIZE: f32 = 189.0;
 async fn main() {
     // let mut board = Board::new();
     let mut board =
-        // Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
         // Board::new_from_fen("7N/2Pp2N1/1r6/2k1KPp1/p1p1R3/2n2PBP/8/8 w - - 0 1").unwrap();
-        Board::new_from_fen("8/8/rnbqkbnr/pp pppppp/PPPPPPPP/RNBQKBNR/8/8 w").unwrap();
+        // Board::new_from_fen("8/8/rnbqkbnr/pp pppppp/PPPPPPPP/RNBQKBNR/8/8 w").unwrap();
         
 
     let piece_atlas = load_texture("assets/PieceAtlas.png").await.unwrap();
     piece_atlas.set_filter(FilterMode::Linear);
 
-    let mut flipped = true;
-    let mut selected_square: Option<u8> = None;
+    let mut flipped = false;
+    let mut selected_tile: Option<Tile> = None;
     // let mut player_white: bool = true;
 
     loop {
@@ -39,7 +39,7 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::U) {
             let mut buffer = String::new();
-            let result = stdin().read_line(&mut buffer);
+            let _ = stdin().read_line(&mut buffer);
             board = Board::new_from_fen(&buffer.to_string()).unwrap();
         }
         if is_key_pressed(KeyCode::Z) && is_key_down(KeyCode::LeftControl) {
@@ -47,19 +47,21 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::P) {
             println!("{}", board.to_fen());
-            let square = get_square(mouse_position().into(), flipped);
-            println!("mouse on square: {:?}", square);
+        }
+        if is_key_pressed(KeyCode::T) {
+            let tile = get_tile(mouse_position().into(), flipped);
+            println!("mouse on tile: {:?}", tile);
         }
         // println!("en_passant: {:?}", board.en_passant);
         if is_mouse_button_pressed(MouseButton::Left) {
 
-            if let Some(clicked_square) = get_square(mouse_position().into(), flipped) {
-                match selected_square {
-                    Some(square) => {
-                            let result = board.try_move_piece(square, clicked_square, &graphical_promote, (&piece_atlas, board.white_turn, flipped)).await;
-                            match result {
+            if let Some(clicked_tile) = get_tile(mouse_position().into(), flipped) {
+                match selected_tile {
+                    Some(tile) => {
+                            let result = board.try_move_piece(tile, clicked_tile, &graphical_promote, (&piece_atlas, board.white_turn, flipped));
+                            match result.await {
                                 Ok(_) => {
-                                    selected_square = None;
+                                    selected_tile = None;
                                 },
                                 Err(e) => {
                                     use chess_lib::board::MoveError as me;
@@ -68,10 +70,10 @@ async fn main() {
                                         me::WrongTurn=>println!("It's not your turn"),
                                         me::PiecePinned=>println!("That piece is pinned"),
                                         me::Stalemate=>println!("The board is in a stalemate"),
-                                        me::NoPieceSelected => selected_square = None,
-                                        me::SameTile => selected_square = None,
+                                        me::NoPieceSelected => selected_tile = None,
+                                        me::SameTile => selected_tile = None,
                                         me::FriendlyCapture => {
-                                            selected_square = Some(clicked_square)
+                                            selected_tile = Some(clicked_tile)
                                         },
                                         me::Cancelled => println!("Move cancelled"),
                                     }
@@ -80,11 +82,11 @@ async fn main() {
                             }
                     }
                     None => {
-                        if board.occupied().get_bit(clicked_square) {
-                            selected_square = Some(clicked_square);
+                        if board.occupied().get_bit(clicked_tile) {
+                            selected_tile = Some(clicked_tile);
                         }
                         else {
-                            selected_square = None;
+                            selected_tile = None;
                         }
                     }
                 }
@@ -100,13 +102,13 @@ async fn main() {
             let _ = board.make_move_unchecked(moves.choose().copied().unwrap());
         }
 
-        render_board(&piece_atlas, &board, selected_square, flipped);
+        render_board(&piece_atlas, &board, selected_tile, flipped);
 
         next_frame().await;
     }
 }
-async fn graphical_promote(square: u8, context: (&Texture2D, bool, bool)) -> Option<Piece> {
-    let (x, y) = square_to_screen(square, context.2);
+async fn graphical_promote(tile: Tile, context: (&Texture2D, bool, bool)) -> Option<Piece> {
+    let (x, y) = tile_to_screen(tile, context.2);
     let mut grace = true;
     loop {
         draw_rectangle(x, y, TILE_SIZE, TILE_SIZE * 4.0, WHITE);
@@ -181,15 +183,15 @@ async fn graphical_promote(square: u8, context: (&Texture2D, bool, bool)) -> Opt
     }
 }
 
-fn render_board(atlas: &Texture2D, board: &Board, selected: Option<u8>, flipped: bool) {
-    let highlight = get_square(mouse_position().into(), flipped);
+fn render_board(atlas: &Texture2D, board: &Board, selected: Option<Tile>, flipped: bool) {
+    let highlight = get_tile(mouse_position().into(), flipped);
     let white_in_check = board.is_in_check(true);
     let black_in_check = board.is_in_check(false);
-    for rank in 0..8 {
-        for file in 0..8 {
-            let (x, y) = square_to_screen(rank * 8 + file, flipped);
+    for file in 0..8 {
+        for rank in 0..8 {
+            let (x, y) = tile_to_screen(Tile(rank * 8 + file), flipped);
 
-            let is_light = (file + rank) % 2
+            let is_light = (rank + file) % 2
                 == match flipped {
                     true => 1,
                     false => 0,
@@ -200,19 +202,19 @@ fn render_board(atlas: &Texture2D, board: &Board, selected: Option<u8>, flipped:
                 Color::from_rgba(181, 136, 99, 255)
             };
             if let Some(pos) = highlight {
-                if (rank * 8 + file) as u8 == pos {
+                if Tile(rank * 8 + file) == pos {
                     color.a = 0.75;
                 }
             }
             if white_in_check {
-                if (rank * 8 + file) as u8 == board.white.get_king_square() {
+                if Tile(rank * 8 + file) == board.white.get_king_tile() {
                     color.r = 1.0;
                     color.g *= 0.5;
                     color.b *= 0.5;
                 }
             }
             if black_in_check {
-                if (rank * 8 + file) as u8 == board.black.get_king_square() {
+                if Tile(rank * 8 + file) == board.black.get_king_tile() {
                     color.r = 1.0;
                     color.g *= 0.5;
                     color.b *= 0.5;
@@ -222,10 +224,10 @@ fn render_board(atlas: &Texture2D, board: &Board, selected: Option<u8>, flipped:
         }
     }
     render_pieces(atlas, flipped, board);
-    if let Some(s) = selected {
-        if let Some((_, white)) = board.get_piece_at_square(s) {
+    if let Some(t) = selected {
+        if let Some((_, white)) = board.get_piece_at_tile(t) {
             if white == board.white_turn {
-                render_moves(board, s, flipped);
+                render_moves(board, t, flipped);
             }
         }
     }
@@ -241,7 +243,7 @@ fn render_pieces(atlas: &Texture2D, flipped: bool, board: &Board) {
 
 fn render_piece_type(atlas: &Texture2D, bitboard: Bitboard, piece: Piece, white: bool, flipped: bool) {
     for s in bitboard {
-        let (x, y) = square_to_screen(s, flipped);
+        let (x, y) = tile_to_screen(s, flipped);
 
         draw_texture_ex(
             atlas,
@@ -280,9 +282,9 @@ fn get_piece_sprite_rect(piece: Piece, white: bool) -> Rect {
         SPRITE_SIZE,
     )
 }
-fn render_moves(board: &Board, selected: u8, flipped: bool) {
+fn render_moves(board: &Board, selected: Tile, flipped: bool) {
     for m in board.generate_legal_moves_from(selected) {
-        let (x, y) = square_to_screen(m.to, flipped);
+        let (x, y) = tile_to_screen(m.to, flipped);
         draw_circle(
             x + (TILE_SIZE / 2.0),
             y + (TILE_SIZE / 2.0),
@@ -291,7 +293,7 @@ fn render_moves(board: &Board, selected: u8, flipped: bool) {
         );
     }
 }
-fn get_square(pos: Vec2, flipped: bool) -> Option<u8> {
+fn get_tile(pos: Vec2, flipped: bool) -> Option<Tile> {
     let file = (pos.x / TILE_SIZE).floor() as u8;
     let rank = (pos.y / TILE_SIZE).floor() as u8;
     if file >= 8 || rank >= 8 {
@@ -299,25 +301,24 @@ fn get_square(pos: Vec2, flipped: bool) -> Option<u8> {
     }
     match flipped {
         true => {
-            let clicked_rank = 7 - rank;
-            return Some(clicked_rank * 8 + file);
+            let clicked_file = 7 - file;
+            return Some(Tile(rank * 8 + clicked_file));
         }
         false => {
-            let clicked_rank = rank;
-            return Some(clicked_rank * 8 + (7 - file));
+            let clicked_rank = 7 - rank;
+            return Some(Tile(clicked_rank * 8 + file));
         }
     }
 }
-fn square_to_screen(square: u8, flipped: bool) -> (f32, f32) {
-    let file = square % 8;
-    let rank = square / 8;
+fn tile_to_screen(tile: Tile, flipped: bool) -> (f32, f32) {
+    let (file, rank) = tile.get_coords();
     let x = match flipped {
-        true => file as f32 * TILE_SIZE,
-        false => (7 - file) as f32 * TILE_SIZE,
+        true => (7 - file) as f32 * TILE_SIZE,
+        false => file as f32 * TILE_SIZE,
     };
     let y = match flipped {
-        true => (7 - rank) as f32 * TILE_SIZE,
-        false => rank as f32 * TILE_SIZE,
+        true => rank as f32 * TILE_SIZE,
+        false => (7 - rank) as f32 * TILE_SIZE,
     };
     (x, y)
 }
