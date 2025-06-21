@@ -1,7 +1,7 @@
 use crate::{board::{Board, Move, Piece}, tile::Tile};
 
 impl Board {
-    pub fn generate_legal_moves(&self, white: bool) -> Vec<Move> {
+    pub fn generate_legal_moves(&mut self, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
         let (player, _) = self.get_players(white);
         for t in player.pieces() {
@@ -11,19 +11,18 @@ impl Board {
         }
         moves
     }
-    pub fn generate_legal_moves_from(&self, from: Tile) -> Vec<Move> {
+    pub fn generate_legal_moves_from(&mut self, from: Tile) -> Vec<Move> {
         let piece = self.get_piece_at_tile(from);
         if let Some((_, white)) = piece {
             let mut legal_moves = Vec::new();
             for m in self.generate_moves_from(from) {
-                let mut copy = self.clone();
+                let _ = self.make_move_unchecked(m);
 
-                copy.make_move_unchecked(m);
-
-                if !copy.is_in_check(white) {
+                if !self.is_in_check(white) {
                     legal_moves.push(m);
                         
                 }
+                self.undo_move();
             }
             legal_moves
         } else {
@@ -58,144 +57,78 @@ impl Board {
             Piece::King => self.generate_king_moves(square, white),
         }
     }
+    fn try_push_pawn_move(&self, tile: Tile, to: Tile, white: bool, capture: Option<Piece>) -> Vec<Move> {
+        let mut result = Vec::new();
+        if to.is_promotion(white) {
+            for i in 1..5 {
+                result.push(self.create_move(tile, to, Piece::Pawn, capture, Some(Piece::from_index(i))));
+            }
+        } else {
+            result.push(self.create_move(tile, to, Piece::Pawn, capture, None));
+        }
+        result
+    }
+
     fn generate_pawn_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
-        let target = tile.forward(white).unwrap();
-        if !self.occupied().get_bit(target) {
-            if target.is_promotion(white) {
-                for p in 1..5 {
-                    moves.push(Move::new(
-                        self.white_turn,
-                        tile,
-                        target,
-                        Piece::Pawn,
-                        None,
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        Some(Piece::from_index(p))
-                    ));
-                }
-            }
-            else {
-                moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        target,
-                        Piece::Pawn,
-                        None,
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None
-                    )
-                );
-            }
-            
-        }
+        // Single push forward
+        if let Some(one_step) = tile.forward(white) {
+            if !self.occupied().get_bit(one_step) {
+                moves.extend(self.try_push_pawn_move(tile, one_step, white, None));
 
-        // Double push
-        if tile.is_pawn_start(white) {
-            let double_target = tile.forward(white).and_then(|t| t.forward(white)).unwrap();
-            if !self.occupied().get_bit(target as Tile) && !self.occupied().get_bit(double_target as Tile)
-            {
-                moves.push(
-                Move::new(
-                    self.white_turn,
-                    tile,
-                    double_target,
-                    Piece::Pawn,
-                    None,
-                    self.en_passant,
-                    self.white.castling,
-                    self.black.castling,
-                    None
-                )
-            );
-            }
-        }
-
-        // Captures
-        for caps in [tile.forward(white).and_then(|t| t.left(white)), tile.forward(white).and_then(|t| t.right(white))] {
-            if let Some(t) = caps {
-                if let Some(ep) = self.en_passant {
-                    if t == ep {
-                        moves.push(Move::new(
-                                self.white_turn,
-                                tile,
-                                t,
-                                Piece::Pawn,
-                                Some(Piece::Pawn),
-                                self.en_passant,
-                                self.white.castling,
-                                self.black.castling,
-                                None
-                            ));
-                    }
-                }
-                if self.is_square_occupied_by_enemy(t, white) {
-                    if t.is_promotion(white) {
-                        for p in 1..5 {
-                            moves.push(Move::new(
-                                self.white_turn,
-                                tile,
-                                t,
-                                Piece::Pawn,
-                                Some(self.get_piece_at_tile(t).unwrap().0),
-                                self.en_passant,
-                                self.white.castling,
-                                self.black.castling,
-                                Some(Piece::from_index(p))
-                            ));
+                // Double push from starting rank
+                if tile.is_pawn_start(white) {
+                    if let Some(two_step) = one_step.forward(white) {
+                        if !self.occupied().get_bit(two_step) {
+                            moves.push(self.create_move(tile, two_step, Piece::Pawn, None, None));
                         }
                     }
-                    else {
-                        moves.push(
-                            Move::new(
-                                self.white_turn,
-                                tile,
-                                t,
-                                Piece::Pawn,
-                                Some(self.get_piece_at_tile(t).unwrap().0),
-                                self.en_passant,
-                                self.white.castling,
-                                self.black.castling,
-                                None
-                            )
-                        );
-                    }
                 }
             }
+        }
 
+        // Captures (including en passant)
+        for maybe_target in [
+            tile.forward(white).and_then(|t| t.left(white)),
+            tile.forward(white).and_then(|t| t.right(white)),
+        ] {
+            if let Some(to) = maybe_target {
+                // En Passant
+                if Some(to) == self.en_passant {
+                    moves.push(self.create_move(tile, to, Piece::Pawn, Some(Piece::Pawn), None));
+                    continue;
+                }
+
+                // Normal capture
+                if self.is_square_occupied_by_enemy(to, white) {
+                    let captured = self.get_piece_at_tile(to).map(|(p, _)| p);
+                    moves.extend(self.try_push_pawn_move(tile, to, white, captured));
+                }
             }
+        }
+
         moves
     }
     fn generate_knight_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
-        let (x, y) = tile.get_coords();
-        for (dx, dy) in Board::KNIGHT_OFFSETS {
-            let nx = x as i8 + dx;
-            let ny = y as i8 + dy;
-            if nx < 0 || ny < 0 { continue; }
-            let dest = Tile::new_xy(nx as u8, ny as u8);
-            if let Some(t) = dest {
-                if !self.is_square_occupied_by_friendly(t, white) {
-                    moves.push(
-                        Move::new(
-                            self.white_turn,
-                            tile,
-                            t,
-                            Piece::Knight,
-                            self.get_piece_at_tile(t).map(|(p, _)| p),
-                            self.en_passant,
-                            self.white.castling,
-                            self.black.castling,
-                            None
-                        )
-                    );
-                }
+
+        let mask = self.tables.knight_table[Into::<usize>::into(tile)];
+        for to in mask {
+            if !self.is_square_occupied_by_friendly(to, white) {
+                moves.push(
+                    Move::new(
+                        self.white_turn,
+                        tile,
+                        to,
+                        Piece::Knight,
+                        self.get_piece_at_tile(to).map(|(p, _)| p),
+                        self.en_passant,
+                        self.white.castling,
+                        self.black.castling,
+                        None,
+                    )
+                );
             }
         }
 
@@ -240,10 +173,10 @@ impl Board {
                 1 => current.right(true),
                 -1 => current.left(true),
 
-                9 => current.forward(true).and_then(|t| t.right(true)),
-                -9 => current.backward(true).and_then(|t| t.left(true)),
-                7 => current.forward(true).and_then(|t| t.left(true)),
-                -7 => current.backward(true).and_then(|t| t.right(true)),
+                9 => current.offset(1, 1),
+                -9 => current.offset(-1, -1),
+                7 => current.offset(-1, 1),
+                -7 => current.offset(1, -1),
                 _ => panic!("Not a valid delta")
             };
             if let Some(t) = next {
@@ -282,12 +215,11 @@ impl Board {
 
         let (player, _) = self.get_players(white);
 
-        for t in tile.get_neighbours(){
-            if !t.in_board() { continue; }
+        let mask = self.tables.king_table[Into::<usize>::into(tile)];
+        for t in mask {
             if !self.is_square_occupied_by_friendly(t, white)
                 && !self.tile_attacked(t, !white)
             {
-                // moves.set_bit(dest as Tile, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
@@ -298,7 +230,7 @@ impl Board {
                         self.en_passant,
                         self.white.castling,
                         self.black.castling,
-                        None
+                        None,
                     )
                 );
             }

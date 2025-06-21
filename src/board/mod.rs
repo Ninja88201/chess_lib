@@ -5,10 +5,11 @@ pub mod movement;
 pub mod check_mate;
 pub mod attackgen;
 pub mod helper;
+pub mod debug;
 
 use std::fmt;
 
-use crate::{player::Player, tile::Tile};
+use crate::{lookup_tables::LookupTables, player::Player, tile::Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Board {
     pub white: Player,
@@ -17,6 +18,8 @@ pub struct Board {
     pub white_turn: bool,
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
+
+    tables: LookupTables,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Piece {
@@ -99,6 +102,7 @@ pub enum MoveError {
     WrongTurn,
     PiecePinned,
     Stalemate,
+    Checkmate,
     Cancelled,
 }
 impl fmt::Display for MoveError {
@@ -108,6 +112,7 @@ impl fmt::Display for MoveError {
             MoveError::WrongTurn => write!(f, "It's the wrong player's turn"),
             MoveError::PiecePinned => write!(f, "Piece is pinned"),
             MoveError::Stalemate => write!(f, "The board is in a stalemate"),
+            MoveError::Checkmate => write!(f, "The board is in a checkmate"),
             MoveError::NoPieceSelected => write!(f, "No piece is selected"),
             MoveError::SameTile => write!(f, "Same tile selected"),
             MoveError::FriendlyCapture => write!(f, "Cannot capture own piece"),

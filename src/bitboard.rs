@@ -79,6 +79,20 @@ impl Not for &Bitboard {
         Bitboard(!self.0)
     }
 }
+impl Shl<i32> for Bitboard {
+    type Output = Self;
+
+    fn shl(self, rhs: i32) -> Self::Output {
+        Bitboard::new(self.0 << rhs)
+    }
+}
+impl Shr<i32> for Bitboard {
+    type Output = Self;
+
+    fn shr(self, rhs: i32) -> Self::Output {
+        Bitboard::new(self.0 >> rhs)
+    }
+}
 
 impl Iterator for Bitboard {
     type Item = Tile;
@@ -118,8 +132,7 @@ impl Bitboard {
         }
     }
     pub fn get_bit(&self, bit: Tile) -> bool {
-        let mask = bit.as_mask();
-        return self & &mask != Bitboard::EMPTY
+        self & &bit.as_mask() != Bitboard::EMPTY
     }
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()

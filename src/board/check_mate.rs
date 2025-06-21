@@ -7,9 +7,11 @@ impl Board {
     }
     pub fn tile_attacked(&self, square: Tile, by_white: bool) -> bool {
         let (opponent, _) = self.get_players(by_white);
-        for s in opponent.pieces() {
-            if self.attacks_tile(s, opponent.get_piece(s).unwrap(), by_white, square) {
-                return true;
+        for from in opponent.pieces() {
+            if let Some(piece) = opponent.get_piece(from) {
+                if self.attacks_tile(from, piece, by_white, square) {
+                    return true;
+                }
             }
         }
         false
@@ -17,7 +19,7 @@ impl Board {
 
     pub fn is_in_check(&self, white: bool) -> bool {
         let (player, _) = self.get_players(white);
-        return self.tile_attacked(player.get_king_tile(), !white);
+        return self.tile_attacked(player.king_tile, !white);
     }
     pub fn is_checkmate(&mut self, white: bool) -> bool {
         if !self.is_in_check(white) {
@@ -29,7 +31,7 @@ impl Board {
         for from in player.pieces() {
             let possible_moves = self.generate_moves_from(from);
             for m in possible_moves {{
-                if self.make_move_unchecked(m) == Ok(()) {
+                if self.make_move_unchecked(m).is_ok() {
                     let in_check = self.is_in_check(white);
                     self.undo_move();
                     if !in_check { return false; }

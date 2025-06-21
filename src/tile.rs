@@ -1,15 +1,9 @@
-use std::ops::Add;
-
 use crate::bitboard::Bitboard;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Tile(pub u8);
 
 impl Tile {
-    // pub fn new_index<T: Into<u8>>
-    // (index: T) -> Tile {
-    //     Tile(index.into())
-    // }
     pub fn new_index(index: u8) -> Option<Tile> {
         if index >= 64 {
             return None;
@@ -22,80 +16,61 @@ impl Tile {
         }
         Some(Tile((y * 8) + x))
     }
-    // pub fn new_xy<T: TryInto<u8>>(x: T, y: T) -> Result<Tile, T::Error> {
-    //     let x: u8 = x.try_into()?;
-    //     let y: u8 = y.try_into()?;
-    //     Ok(Tile((y * 8) + x))
-    // }
     pub fn get_neighbours(&self) -> Bitboard {
+        let (x, y) = self.get_coords();
         let mut result = Bitboard::EMPTY;
-        if let Some(t) = Tile::new_index(self.0 + 9 as u8) {
-            result.set_bit(t, true);
-        }
-        if let Some(t) = Tile::new_index(self.0 + 8 as u8) {
-            result.set_bit(t, true);
-        }
-        if let Some(t) = Tile::new_index(self.0 + 7 as u8) {
-            result.set_bit(t, true);
+
+        const DIRS: [(i8, i8); 8] = [
+            (0, 1), (1, 1), (1, 0), (1, -1),
+            (0, -1), (-1, -1), (-1, 0), (-1, 1),
+        ];
+
+        for (dx, dy) in DIRS {
+            let nx = x as i8 + dx;
+            let ny = y as i8 + dy;
+            if (0..8).contains(&nx) && (0..8).contains(&ny) {
+                if let Some(t) = Tile::new_xy(nx as u8, ny as u8) {
+                    result.set_bit(t, true);
+                }
+            }
         }
 
-        if let Some(t) = Tile::new_index(self.0 + 1 as u8) {
-            result.set_bit(t, true);
-        }
-        if let Some(t) = Tile::new_index(self.0.saturating_sub(1)) {
-            result.set_bit(t, true);
-        }
-
-        if let Some(t) = Tile::new_index(self.0.saturating_sub(7)) {
-            result.set_bit(t, true);
-        }
-        if let Some(t) = Tile::new_index(self.0.saturating_sub(8)) {
-            result.set_bit(t, true);
-        }
-        if let Some(t) = Tile::new_index(self.0.saturating_sub(9)) {
-            result.set_bit(t, true);
-        }
-        
         result
     }
     pub fn as_mask(&self) -> Bitboard {
-        if self.0 >= 64 { return Bitboard::EMPTY; }
-        Bitboard::new(1u64 << self.0)
+        if self.0 >= 64 { 
+            Bitboard::EMPTY
+        } else {
+            Bitboard::new(1u64 << self.0)
+        }
+    }
+    pub fn offset(&self, dx: i8, dy: i8) -> Option<Self> {
+        let (x, y) = self.get_coords();
+        let nx = x as i8 + dx;
+        let ny = y as i8 + dy;
+        if (0..8).contains(&nx) && (0..8).contains(&ny) {
+            Tile::new_xy(nx as u8, ny as u8)
+        } else {
+            None
+        }
     }
     pub fn get_coords(&self) -> (u8, u8) {
         (self.0 % 8, self.0 / 8)
     }
-    pub fn forward(&self, white: bool) -> Option<Tile> {
-        let direction = match white {
-            true => 1,
-            false => -1,
-        };
-        let (x, y) = self.get_coords();
-        Tile::new_xy(x, (y as i8 + direction) as u8)
-    } 
-    pub fn backward(&self, white: bool) -> Option<Tile> {
-        let direction = match white {
-            true => -1,
-            false => 1,
-        };
-        let (x, y) = self.get_coords();
-        Tile::new_xy(x, (y as i8 + direction) as u8)
+    pub fn forward(&self, white: bool) -> Option<Self> {
+        self.offset(0, if white { 1 } else { -1 })
     }
-    pub fn left(&self, white: bool) -> Option<Tile> {
-        let direction = match white {
-            true => -1,
-            false => 1,
-        };
-        let (x, y) = self.get_coords();
-        Tile::new_xy((x as i8 + direction) as u8, y)
+
+    pub fn backward(&self, white: bool) -> Option<Self> {
+        self.offset(0, if white { -1 } else { 1 })
     }
-    pub fn right(&self, white: bool) -> Option<Tile> {
-        let direction = match white {
-            true => 1,
-            false => -1,
-        };
-        let (x, y) = self.get_coords();
-        Tile::new_xy((x as i8 + direction) as u8, y)
+
+    pub fn left(&self, white: bool) -> Option<Self> {
+        self.offset(if white { -1 } else { 1 }, 0)
+    }
+
+    pub fn right(&self, white: bool) -> Option<Self> {
+        self.offset(if white { 1 } else { -1 }, 0)
     }
     pub fn is_promotion(&self, white: bool) -> bool {
         let y = self.get_coords().1;
@@ -111,75 +86,10 @@ impl Tile {
             false => y == 6,
         }
     }
-    pub fn in_board(&self) -> bool {
-        self.0 < 64
+}
+impl Into<usize> for Tile
+{
+    fn into(self) -> usize {
+        self.0 as usize
     }
 }
-// impl Add for Tile {
-//     type Output = Self;
-
-//     fn add(self, rhs: Self) -> Self::Output {
-//         Tile(self.0 + rhs.0)
-//     }
-// }
-// impl Add<u8> for Tile {
-//     type Output = Self;
-
-//     fn add(self, rhs: u8) -> Self::Output {
-//         Tile(self.0 + rhs)
-//     }
-// }
-// impl Add<i32> for Tile {
-//     type Output = Self;
-
-//     fn add(self, rhs: i32) -> Self::Output {
-//         Tile(self.0 + rhs as u8)
-//     }
-// }
-// impl Add<i8> for Tile {
-//     type Output = Self;
-
-//     fn add(self, rhs: i8) -> Self::Output {
-//         Tile(self.0 + rhs as u8)
-//     }
-// }
-// impl Add for &Tile {
-//     type Output = Tile;
-
-//     fn add(self, rhs: Self) -> Self::Output {
-//         Tile(self.0 + rhs.0)
-//     }
-// }
-// impl Add<u8> for &Tile {
-//     type Output = Tile;
-
-//     fn add(self, rhs: u8) -> Self::Output {
-//         Tile(self.0 + rhs)
-//     }
-// }
-// impl Add<i32> for &Tile {
-//     type Output = Tile;
-
-//     fn add(self, rhs: i32) -> Self::Output {
-//         Tile(self.0 + rhs as u8)
-//     }
-// }
-// impl Sub<i32> for Tile {
-//     type Output = Tile;
-
-//     fn sub(self, rhs: i32) -> Self::Output {
-//         Tile(self.0 - rhs as u8)
-//     }
-// }
-// impl Sub<i32> for &Tile {
-//     type Output = Tile;
-
-//     fn sub(self, rhs: i32) -> Self::Output {
-//         Tile(self.0 - rhs as u8)
-//     }
-// }
-// impl AddAssign<i8> for Tile {
-//     fn add_assign(&mut self, rhs: i8) {
-//         self.0 += rhs as u8
-//     }
-// }

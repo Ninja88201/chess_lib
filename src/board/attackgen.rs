@@ -11,49 +11,29 @@ impl Board {
         attacks
     }
     pub fn generate_attacks_from(&self, tile: Tile) -> Bitboard {
-        let (piece, white) = match self.get_piece_at_tile(tile) {
-            Some(x) => x,
-            None => return Bitboard::EMPTY,
-        };
-        return self.generate_attacks_from_piece(tile, piece, white);
+        match self.get_piece_at_tile(tile) {
+            Some((p, w)) => self.generate_attacks_from_piece(tile, p, w),
+            None => Bitboard::EMPTY,
+        }
     }
     pub fn generate_attacks_from_piece(&self, tile: Tile, piece: Piece, white: bool) -> Bitboard {
         match piece {
             Piece::Pawn => self.generate_pawn_attacks(tile, white),
-            Piece::Knight => self.generate_knight_attacks(tile),
+            Piece::Knight => self.tables.knight_table[Into::<usize>::into(tile)],
             Piece::Bishop => self.generate_sliding_attacks(tile, false, true),
             Piece::Rook => self.generate_sliding_attacks(tile, true, false),
             Piece::Queen => self.generate_sliding_attacks(tile, true, true),
-            Piece::King => self.generate_king_attacks(tile),
+            Piece::King => self.tables.king_table[Into::<usize>::into(tile)],
         }
     }
     fn generate_pawn_attacks(&self, tile: Tile, white: bool) -> Bitboard {
-        let mut attacks = Bitboard::EMPTY;
-        if let Some(t) = tile.forward(white).and_then(|t| t.left(white)) {
-            attacks.set_bit(t, true);
+        let bb = tile.as_mask();
+        match white {
+            true => ((bb << 7) & !Self::FILE_H) | ((bb << 9) & !Self::FILE_A),
+            false => ((bb >> 7) & !Self::FILE_A) | ((bb >> 9) & !Self::FILE_H),
         }
-        if let Some(t) = tile.forward(white).and_then(|t| t.right(white)) {
-            attacks.set_bit(t, true);
-        }
-
-        attacks
     }
-    fn generate_knight_attacks(&self, tile: Tile) -> Bitboard {
-        let mut attacks = Bitboard::EMPTY;
-        let (x, y) = tile.get_coords();
-        for (dx, dy) in &Board::KNIGHT_OFFSETS {
-            let nx = (x as i8) + dx;
-            let ny = y as i8 + dy;
-            if nx < 0 || ny < 0 { continue; }
-            let dest = Tile::new_xy(nx as u8, ny as u8);
-            
-            if let Some(t) = dest {
-                attacks.set_bit(t, true);
-            }
-        }
 
-        attacks
-    }
     fn generate_sliding_attacks(
         &self,
         tile: Tile,
@@ -79,48 +59,33 @@ impl Board {
 
         attacks
     }
-    fn slide_in_direction_attack(
-        &self,
-        tile: Tile,
-        delta: i8,
-    ) -> Bitboard {
-        let mut result = Bitboard::EMPTY;
-        let mut curr = Some(tile);
+    fn slide_in_direction_attack(&self, start: Tile, delta: i8) -> Bitboard {
+        let mut attacks = Bitboard::EMPTY;
+        let mut current = Some(start);
 
-        loop {
-            if let Some(c) = curr {
-                curr = match delta {
-                    8 => c.forward(true),
-                    -8 => c.backward(true),
-                    1 => c.right(true),
-                    -1 => c.left(true),
-    
-                    9 => c.forward(true).and_then(|t| t.right(true)),
-                    -9 => c.backward(true).and_then(|t| t.left(true)),
-                    7 => c.forward(true).and_then(|t| t.left(true)),
-                    -7 => c.backward(true).and_then(|t| t.right(true)),
-                    _ => panic!("Not a valid delta")
-                };
-            }
-            else {
-                break;
-            }
-            if let Some(c) = curr {
-                result.set_bit(c, true);
-    
-                if self.occupied().get_bit(c) {
+        while let Some(tile) = current {
+            current = match delta {
+                8 => tile.forward(true),
+                -8 => tile.backward(true),
+                1 => tile.right(true),
+                -1 => tile.left(true),
+
+                9 => tile.offset(1, 1),
+                -9 => tile.offset(-1, -1),
+                7 => tile.offset(-1, 1),
+                -7 => tile.offset(1, -1),
+                _ => panic!("Invalid delta"),
+            };
+
+            if let Some(next_tile) = current {
+                attacks.set_bit(next_tile, true);
+                if self.occupied().get_bit(next_tile) {
                     break;
-                }    
-            }
-            else {
-                break;
+                }
             }
         }
 
-        result
+        attacks
     }
 
-    fn generate_king_attacks(&self, tile: Tile) -> Bitboard {
-        tile.get_neighbours()
-    }
 }

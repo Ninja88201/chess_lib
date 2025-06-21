@@ -14,9 +14,10 @@ async fn main() {
     // let mut board = Board::new();
     let mut board =
         Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        // Board::new_from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8").unwrap();
         // Board::new_from_fen("7N/2Pp2N1/1r6/2k1KPp1/p1p1R3/2n2PBP/8/8 w - - 0 1").unwrap();
         // Board::new_from_fen("8/8/rnbqkbnr/pp pppppp/PPPPPPPP/RNBQKBNR/8/8 w").unwrap();
-        
+          
 
     let piece_atlas = load_texture("assets/PieceAtlas.png").await.unwrap();
     piece_atlas.set_filter(FilterMode::Linear);
@@ -26,6 +27,7 @@ async fn main() {
     // let mut player_white: bool = true;
 
     loop {
+        // println!("Castling rights: {:?}", board.white.castling);
         clear_background(BLACK);
 
         if is_key_down(KeyCode::Escape) {
@@ -66,10 +68,11 @@ async fn main() {
                                 Err(e) => {
                                     use chess_lib::board::MoveError as me;
                                     match e {
-                                        me::IllegalMove=>println!("That move is illegal"),
-                                        me::WrongTurn=>println!("It's not your turn"),
-                                        me::PiecePinned=>println!("That piece is pinned"),
-                                        me::Stalemate=>println!("The board is in a stalemate"),
+                                        me::IllegalMove => println!("That move is illegal"),
+                                        me::WrongTurn => selected_tile = None,
+                                        me::PiecePinned => println!("That piece is pinned"),
+                                        me::Stalemate => println!("The board is in a stalemate"),
+                                        me::Checkmate => println!("The board is in a checkmate"),
                                         me::NoPieceSelected => selected_tile = None,
                                         me::SameTile => selected_tile = None,
                                         me::FriendlyCapture => {
@@ -102,7 +105,7 @@ async fn main() {
             let _ = board.make_move_unchecked(moves.choose().copied().unwrap());
         }
 
-        render_board(&piece_atlas, &board, selected_tile, flipped);
+        render_board(&piece_atlas, &mut board, selected_tile, flipped);
 
         next_frame().await;
     }
@@ -183,7 +186,7 @@ async fn graphical_promote(tile: Tile, context: (&Texture2D, bool, bool)) -> Opt
     }
 }
 
-fn render_board(atlas: &Texture2D, board: &Board, selected: Option<Tile>, flipped: bool) {
+fn render_board(atlas: &Texture2D, board: &mut Board, selected: Option<Tile>, flipped: bool) {
     let highlight = get_tile(mouse_position().into(), flipped);
     let white_in_check = board.is_in_check(true);
     let black_in_check = board.is_in_check(false);
@@ -207,14 +210,14 @@ fn render_board(atlas: &Texture2D, board: &Board, selected: Option<Tile>, flippe
                 }
             }
             if white_in_check {
-                if Tile(rank * 8 + file) == board.white.get_king_tile() {
+                if Tile(rank * 8 + file) == board.white.king_tile {
                     color.r = 1.0;
                     color.g *= 0.5;
                     color.b *= 0.5;
                 }
             }
             if black_in_check {
-                if Tile(rank * 8 + file) == board.black.get_king_tile() {
+                if Tile(rank * 8 + file) == board.black.king_tile {
                     color.r = 1.0;
                     color.g *= 0.5;
                     color.b *= 0.5;
@@ -238,6 +241,7 @@ fn render_pieces(atlas: &Texture2D, flipped: bool, board: &Board) {
         for i in 0..player.bb.len() {
             render_piece_type(atlas, player.bb[i], Piece::from_index(i), is_white, flipped);
         }
+        render_piece_type(atlas, player.king_tile.as_mask(), Piece::King, is_white, flipped);
     }
 }
 
@@ -282,7 +286,7 @@ fn get_piece_sprite_rect(piece: Piece, white: bool) -> Rect {
         SPRITE_SIZE,
     )
 }
-fn render_moves(board: &Board, selected: Tile, flipped: bool) {
+fn render_moves(board: &mut Board, selected: Tile, flipped: bool) {
     for m in board.generate_legal_moves_from(selected) {
         let (x, y) = tile_to_screen(m.to, flipped);
         draw_circle(

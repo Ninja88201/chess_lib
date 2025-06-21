@@ -44,9 +44,10 @@ impl Board {
         self.white.pieces() | self.black.pieces()
     }
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {
-        match white {
-            true => (&self.white, &self.black),
-            false => (&self.black, &self.white),
+        if white {
+            (&self.white, &self.black)
+        } else {
+            (&self.black, &self.white)
         }
     }
     pub fn get_players_mut(&mut self, white: bool) -> (&mut Player, &mut Player) {
@@ -59,19 +60,25 @@ impl Board {
         let white_piece = self.white.get_piece(tile);
         let black_piece = self.black.get_piece(tile);
         match (white_piece, black_piece) {
-            (None, None) => return None,
-            (None, Some(p)) => return Some((p, false)),
-            (Some(p), None) => return Some((p, true)),
+            (None, None) => None,
+            (None, Some(p)) => Some((p, false)),
+            (Some(p), None) => Some((p, true)),
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>>
+    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>> 
     (&mut self, from: Tile, to: Tile, promotion: F, context: C) -> Result<(), MoveError> {
         if from == to {
             return Err(MoveError::SameTile)
         }
+        if self.is_checkmate(self.white_turn) {
+            return Err(MoveError::Checkmate);
+        }
         let result = self.get_piece_at_tile(from);
         if let Some((p, w)) = result {
+            if w != self.white_turn {
+                return Err(MoveError::WrongTurn)
+            }
             let mut promote = None;
             if to.is_promotion(w) && p == Piece::Pawn && from.get_neighbours().get_bit(to){
                 let promotion = promotion(to, context);
@@ -114,26 +121,34 @@ impl Board {
                 self.black.castling ,
                 promote
             );
+            
+            // Check move legality before proceeding with the move.
+            if !self.generate_legal_moves_from(mov.from).contains(&mov) {
+                return Err(MoveError::IllegalMove);
+            }
+
+            // Perform move if it's valid.
             let result = self.make_move_unchecked(mov);
 
+            // Check if this move places the king in check, and undo if it does.
             if self.is_in_check(!self.white_turn) {
                 self.undo_move();
                 return Err(MoveError::PiecePinned);
             }
-            if self.generate_legal_moves(self.white_turn).len() == 0 && !self.is_in_check(self.white_turn){
+
+            // Handle stalemate or checkmate
+            if self.generate_legal_moves(self.white_turn).len() == 0 && !self.is_in_check(self.white_turn) {
                 println!("Stalemate");
             }
-    
+
             if self.is_checkmate(self.white_turn) {
                 println!("Checkmate");
             }
-    
+
             return result;
         } else {
             return Err(MoveError::NoPieceSelected);
         }
-        
-
     }
     pub fn make_move_unchecked(&mut self, mov: Move) -> Result<(), MoveError> {
         if mov.from == mov.to {
@@ -141,18 +156,18 @@ impl Board {
         }
         
         let piece_moved = self.get_piece_at_tile(mov.from);
-        let legal_moves = self.generate_moves_from(mov.from);
+        // let legal_moves = self.generate_moves_from(mov.from);
         
         
         
         
-        if !legal_moves.contains(&mov) {
-            return Err(MoveError::IllegalMove);
-        }
-        if legal_moves.len() == 0 && !self.is_in_check(self.white_turn) {
-            println!("Stalemate");
-            return Err(MoveError::Stalemate);
-        }
+        // if !legal_moves.contains(&mov) {
+        //     return Err(MoveError::IllegalMove);
+        // }
+        // if legal_moves.len() == 0 && !self.is_in_check(self.white_turn) {
+        //     println!("Stalemate");
+        //     return Err(MoveError::Stalemate);
+        // }
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
@@ -164,15 +179,33 @@ impl Board {
                 return Err(MoveError::WrongTurn);
             }
             if let Some(p) = mov.capture {
-                if let Some(t) = mov.en_passant && t == mov.to {
-                    opponent.remove_piece_type(p, t.backward(is_white).unwrap());
-                }
-                else {
-                    opponent.remove_piece_type(p, mov.to);
+                let target_tile = if mov.en_passant == Some(mov.to) {
+                    mov.to.backward(is_white).unwrap()
+                } else {
+                    mov.to
+                };
+                opponent.remove_piece_type(p, target_tile);
+
+                if p == Piece::Rook {
+                    opponent.castling = match (mov.to, opponent.castling) {
+                        (Board::A1, CastlingRights::Both) => CastlingRights::KingSide,
+                        (Board::H1, CastlingRights::Both) => CastlingRights::QueenSide,
+                        (Board::A1, CastlingRights::QueenSide) => CastlingRights::None,
+                        (Board::H1, CastlingRights::KingSide) => CastlingRights::None,
+
+                        (Board::A8, CastlingRights::Both) => CastlingRights::KingSide,
+                        (Board::H8, CastlingRights::Both) => CastlingRights::QueenSide,
+                        (Board::A8, CastlingRights::QueenSide) => CastlingRights::None,
+                        (Board::H8, CastlingRights::KingSide) => CastlingRights::None,
+                        _ => opponent.castling,
+                    }
                 }
             }
             // return Err(MoveError::IllegalMove);
-        };
+        }
+        else {
+            return Err(MoveError::NoPieceSelected);
+        }
 
         
 

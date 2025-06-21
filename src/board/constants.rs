@@ -1,10 +1,8 @@
-use crate::{board::Board, tile::Tile};
+use crate::{bitboard::Bitboard, board::Board, tile::Tile};
 
 impl Board {
-    pub const KNIGHT_OFFSETS: [(i8, i8); 8] = [
-        (2, 1), (1, 2), (-1, 2), (-2, 1),
-        (-2, -1), (-1, -2), (1, -2), (2, -1),
-    ];
+    pub const FILE_A: Bitboard = Bitboard(0x0101010101010101);
+    pub const FILE_H: Bitboard = Bitboard(0x8080808080808080);
     
     pub const A1: Tile = Tile(0);
     pub const A8: Tile = Tile(56);

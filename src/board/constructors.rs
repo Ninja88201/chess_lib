@@ -1,4 +1,5 @@
 use crate::board::{Board, Piece, CastlingRights};
+use crate::lookup_tables::LookupTables;
 use crate::player::Player;
 use crate::tile::Tile;
 
@@ -11,6 +12,7 @@ impl Board {
             white_turn: true,
             history: Vec::new(),
             en_passant: None,
+            tables: LookupTables::new(),
         }
     }
     pub fn new_empty() -> Self {
@@ -21,6 +23,7 @@ impl Board {
             white_turn: true,
             history: Vec::new(),
             en_passant: None,
+            tables: LookupTables::new(),
         }
     }
     pub fn new_from_fen(fen: &str) -> Result<Self, String> {
