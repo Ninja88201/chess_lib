@@ -34,58 +34,49 @@ impl Board {
         }
     }
 
-    fn generate_sliding_attacks(
-        &self,
-        tile: Tile,
-        straight: bool,
-        diagonal: bool,
-    ) -> Bitboard {
+    pub fn generate_sliding_attacks(&self, tile: Tile, straight: bool, diagonal: bool) -> Bitboard {
+        let sq = Into::<usize>::into(tile);
+        let occ = self.occupied();
+
         let mut attacks = Bitboard::EMPTY;
 
-        const STRAIGHT_DELTAS: &[i8] = &[8, -8, 1, -1];      // up, down, right, left
-        const DIAGONAL_DELTAS: &[i8] = &[9, -9, 7, -7];      // diag up-right, down-left, up-left, down-right
-
         if straight {
-            for &delta in STRAIGHT_DELTAS {
-                attacks |= self.slide_in_direction_attack(tile, delta);
-            }
+            attacks |= self.tables.rook_attacks_on(sq, occ);
         }
 
         if diagonal {
-            for &delta in DIAGONAL_DELTAS {
-                attacks |= self.slide_in_direction_attack(tile, delta);
-            }
+            attacks |= self.tables.bishop_attacks_on(sq, occ);
         }
 
         attacks
     }
-    fn slide_in_direction_attack(&self, start: Tile, delta: i8) -> Bitboard {
-        let mut attacks = Bitboard::EMPTY;
-        let mut current = Some(start);
+    // fn slide_in_direction_attack(&self, start: Tile, delta: i8) -> Bitboard {
+    //     let mut attacks = Bitboard::EMPTY;
+    //     let mut current = Some(start);
 
-        while let Some(tile) = current {
-            current = match delta {
-                8 => tile.forward(true),
-                -8 => tile.backward(true),
-                1 => tile.right(true),
-                -1 => tile.left(true),
+    //     while let Some(tile) = current {
+    //         current = match delta {
+    //             8 => tile.forward(true),
+    //             -8 => tile.backward(true),
+    //             1 => tile.right(true),
+    //             -1 => tile.left(true),
 
-                9 => tile.offset(1, 1),
-                -9 => tile.offset(-1, -1),
-                7 => tile.offset(-1, 1),
-                -7 => tile.offset(1, -1),
-                _ => panic!("Invalid delta"),
-            };
+    //             9 => tile.offset(1, 1),
+    //             -9 => tile.offset(-1, -1),
+    //             7 => tile.offset(-1, 1),
+    //             -7 => tile.offset(1, -1),
+    //             _ => panic!("Invalid delta"),
+    //         };
 
-            if let Some(next_tile) = current {
-                attacks.set_bit(next_tile, true);
-                if self.occupied().get_bit(next_tile) {
-                    break;
-                }
-            }
-        }
+    //         if let Some(next_tile) = current {
+    //             attacks.set_bit(next_tile, true);
+    //             if self.occupied().get_bit(next_tile) {
+    //                 break;
+    //             }
+    //         }
+    //     }
 
-        attacks
-    }
+    //     attacks
+    // }
 
 }

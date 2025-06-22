@@ -93,6 +93,11 @@ impl Shr<i32> for Bitboard {
         Bitboard::new(self.0 >> rhs)
     }
 }
+impl From<u64> for Bitboard {
+    fn from(val: u64) -> Self {
+        Bitboard(val)
+    }
+}
 
 impl Iterator for Bitboard {
     type Item = Tile;

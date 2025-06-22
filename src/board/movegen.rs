@@ -134,82 +134,81 @@ impl Board {
 
         moves
     }
-    fn generate_sliding_moves(
-        &self,
-        tile: Tile,
-        white: bool,
-        straight: bool,
-        diagonal: bool,
-    ) -> Vec<Move> {
+    fn generate_sliding_moves(&self, tile: Tile, white: bool, straight: bool, diagonal: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
-        const STRAIGHT_DELTAS: &[i8] = &[8, -8, 1, -1];      // up, down, right, left
-        const DIAGONAL_DELTAS: &[i8] = &[9, -9, 7, -7];      // diag up-right, down-left, up-left, down-right
+        let attacks = self.generate_sliding_attacks(tile, straight, diagonal);
 
-        if straight {
-            for &delta in STRAIGHT_DELTAS {
-                moves.extend(self.slide_in_direction_moves(tile, white, delta));
+        for to in attacks {
+            if self.is_square_occupied_by_friendly(to, white) {
+                continue;
             }
-        }
 
-        if diagonal {
-            for &delta in DIAGONAL_DELTAS {
-                moves.extend(self.slide_in_direction_moves(tile, white, delta));
-            }
+            moves.push(Move::new(
+                self.white_turn,
+                tile,
+                to,
+                self.get_piece_at_tile(tile).unwrap().0,
+                self.get_piece_at_tile(to).map(|(p, _)| p),
+                self.en_passant,
+                self.white.castling,
+                self.black.castling,
+                None,
+            ));
         }
 
         moves
     }
 
     // Helper function to slide in a given direction
-    fn slide_in_direction_moves(&self, tile: Tile, white: bool, delta: i8) -> Vec<Move> {
-        let mut result = Vec::new();
-        let mut current = tile;
+    // fn slide_in_direction_moves(&self, tile: Tile, white: bool, delta: i8) -> Vec<Move> {
+    //     let mut result = Vec::new();
+    //     let mut current = tile;
 
-        loop {
-            let next = match delta {
-                8 => current.forward(true),
-                -8 => current.backward(true),
-                1 => current.right(true),
-                -1 => current.left(true),
+    //     loop {
+    //         let next = match delta {
+    //             8 => current.forward(true),
+    //             -8 => current.backward(true),
+    //             1 => current.right(true),
+    //             -1 => current.left(true),
 
-                9 => current.offset(1, 1),
-                -9 => current.offset(-1, -1),
-                7 => current.offset(-1, 1),
-                -7 => current.offset(1, -1),
-                _ => panic!("Not a valid delta")
-            };
-            if let Some(t) = next {
-                if self.is_square_occupied_by_friendly(t, white) {
-                    break;
-                }
+    //             9 => current.offset(1, 1),
+    //             -9 => current.offset(-1, -1),
+    //             7 => current.offset(-1, 1),
+    //             -7 => current.offset(1, -1),
+    //             _ => panic!("Not a valid delta")
+    //         };
+    //         if let Some(t) = next {
+    //             if self.is_square_occupied_by_friendly(t, white) {
+    //                 break;
+    //             }
     
-                result.push(Move::new(
-                    self.white_turn,
-                    tile,
-                    t,
-                    self.get_piece_at_tile(tile).unwrap().0,
-                    self.get_piece_at_tile(t).map(|(p, _)| p),
-                    self.en_passant,
-                    self.white.castling,
-                    self.black.castling,
-                    None,
-                ));
+    //             result.push(Move::new(
+    //                 self.white_turn,
+    //                 tile,
+    //                 t,
+    //                 self.get_piece_at_tile(tile).unwrap().0,
+    //                 self.get_piece_at_tile(t).map(|(p, _)| p),
+    //                 self.en_passant,
+    //                 self.white.castling,
+    //                 self.black.castling,
+    //                 None,
+    //             ));
     
-                if self.is_square_occupied_by_enemy(t, white) {
-                    break;
-                }
-                current = t;
-            }
-            else {
-                break;
-            }
+    //             if self.is_square_occupied_by_enemy(t, white) {
+    //                 break;
+    //             }
+    //             current = t;
+    //         }
+    //         else {
+    //             break;
+    //         }
 
 
-        }
+    //     }
 
-        result
-    }
+    //     result
+    // }
     fn generate_king_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
