@@ -1,4 +1,4 @@
-use crate::{bitboard::Bitboard, board::{Board, CastlingRights, Piece}, tile::Tile};
+use crate::{Bitboard, Board, CastlingRights, Piece, Tile};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {

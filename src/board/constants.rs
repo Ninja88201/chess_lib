@@ -1,4 +1,4 @@
-use crate::{bitboard::Bitboard, board::Board, tile::Tile};
+use crate::{Bitboard, Board, Tile};
 
 impl Board {
     pub const FILE_A: Bitboard = Bitboard(0x0101010101010101);

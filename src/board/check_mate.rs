@@ -1,20 +1,16 @@
-use crate::{board::{Board, Piece}, tile::Tile};
+use crate::{Bitboard, Board, Tile};
 
 impl Board {
 
-    fn attacks_tile(&self, from: Tile, piece: Piece, white: bool, target: Tile) -> bool {
-        self.generate_attacks_from_piece(from, piece, white).get_bit(target)
-    }
-    pub fn tile_attacked(&self, square: Tile, by_white: bool) -> bool {
+    pub fn tile_attacked(&self, tile: Tile, by_white: bool) -> bool {
         let (opponent, _) = self.get_players(by_white);
+        let mut attacks = Bitboard::EMPTY;
         for from in opponent.pieces() {
             if let Some(piece) = opponent.get_piece(from) {
-                if self.attacks_tile(from, piece, by_white, square) {
-                    return true;
-                }
+                attacks |= self.generate_attacks_from_piece(from, piece, by_white);
             }
         }
-        false
+        return attacks.get_bit(tile);
     }
 
     pub fn is_in_check(&self, white: bool) -> bool {

@@ -1,4 +1,4 @@
-pub const BISHOP_MAGICS: [crate::lookup_tables::MagicEntry; 64] = [
+pub const BISHOP_MAGICS: &[crate::lookup_tables::MagicEntry; 64] = &[
     crate::lookup_tables::MagicEntry { mask: 0x0040201008040200, magic: 0x4404130808098886, shift: 58, offset: 0 },
     crate::lookup_tables::MagicEntry { mask: 0x0000402010080400, magic: 0x2320484209404054, shift: 59, offset: 64 },
     crate::lookup_tables::MagicEntry { mask: 0x0000004020100a00, magic: 0x1228480e40827322, shift: 59, offset: 96 },

@@ -1,6 +1,6 @@
 use std::ops::*;
 
-use crate::tile::Tile;
+use crate::Tile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bitboard(pub u64);

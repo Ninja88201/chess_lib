@@ -1,8 +1,6 @@
 use std::io::stdin;
 
-use chess_lib::bitboard::Bitboard;
-use chess_lib::board::{Board, Piece};
-use chess_lib::tile::Tile;
+use chess_lib::{Bitboard, Board, Piece, Tile};
 use macroquad::prelude::*;
 use macroquad::rand::ChooseRandom;
 
@@ -24,10 +22,8 @@ async fn main() {
 
     let mut flipped = false;
     let mut selected_tile: Option<Tile> = None;
-    // let mut player_white: bool = true;
 
     loop {
-        // println!("Castling rights: {:?}", board.white.castling);
         clear_background(BLACK);
 
         if is_key_down(KeyCode::Escape) {
@@ -40,9 +36,13 @@ async fn main() {
             board = Board::new();
         }
         if is_key_pressed(KeyCode::U) {
+            println!("Input fen string: \n");
             let mut buffer = String::new();
             let _ = stdin().read_line(&mut buffer);
-            board = Board::new_from_fen(&buffer.to_string()).unwrap();
+            match Board::new_from_fen(&buffer.to_string()) {
+                Ok(b) => board = b,
+                Err(e) => println!("{}", e),
+            }
         }
         if is_key_pressed(KeyCode::Z) && is_key_down(KeyCode::LeftControl) {
             board.undo_move();
@@ -50,11 +50,6 @@ async fn main() {
         if is_key_pressed(KeyCode::P) {
             println!("{}", board.to_fen());
         }
-        if is_key_pressed(KeyCode::T) {
-            let tile = get_tile(mouse_position().into(), flipped);
-            println!("mouse on tile: {:?}", tile);
-        }
-        // println!("en_passant: {:?}", board.en_passant);
         if is_mouse_button_pressed(MouseButton::Left) {
 
             if let Some(clicked_tile) = get_tile(mouse_position().into(), flipped) {
@@ -66,7 +61,7 @@ async fn main() {
                                     selected_tile = None;
                                 },
                                 Err(e) => {
-                                    use chess_lib::board::MoveError as me;
+                                    use chess_lib::move_error::MoveError as me;
                                     match e {
                                         me::IllegalMove => println!("That move is illegal"),
                                         me::WrongTurn => selected_tile = None,
@@ -95,11 +90,6 @@ async fn main() {
                 }
             }
         }
-        // if board.white_turn != player_white {
-        //     let moves = board.generate_legal_moves(board.white_turn);
-        //     let (from, to) = pick_random_move(moves).unwrap();
-        //     board.try_move_piece(from, to);
-        // }
         if is_key_pressed(KeyCode::Space) {
             let moves = board.generate_legal_moves(board.white_turn);
             let _ = board.make_move_unchecked(moves.choose().copied().unwrap());

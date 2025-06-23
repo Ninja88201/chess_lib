@@ -1,7 +1,4 @@
-use crate::board::{Board, Piece, CastlingRights};
-use crate::lookup_tables::LookupTables;
-use crate::player::Player;
-use crate::tile::Tile;
+use crate::{Tile, Player, Piece, CastlingRights, Board};
 
 impl Board {
     pub fn new() -> Self {
@@ -12,7 +9,6 @@ impl Board {
             white_turn: true,
             history: Vec::new(),
             en_passant: None,
-            tables: LookupTables::new(),
         }
     }
     pub fn new_empty() -> Self {
@@ -23,7 +19,6 @@ impl Board {
             white_turn: true,
             history: Vec::new(),
             en_passant: None,
-            tables: LookupTables::new(),
         }
     }
     pub fn new_from_fen(fen: &str) -> Result<Self, String> {
@@ -62,7 +57,7 @@ impl Board {
                             _ => return Err(format!("Invalid piece character: {}", ch)),
                         };
 
-                        let rank = 7 - rank_idx as u8; // Convert to 0-indexed from top
+                        let rank = 7 - rank_idx as u8;
                         let square = rank * 8 + file;
                         if is_white {
                             board.white.place_piece(piece, Tile(square));

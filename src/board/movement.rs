@@ -1,61 +1,6 @@
-use crate::bitboard::Bitboard;
-use crate::board::{Board, CastlingRights, Move, MoveError, Piece};
-use crate::player::Player;
-use crate::tile::Tile;
+use crate::{Tile, Piece, MoveError, Move, CastlingRights, Board};
 
 impl Board {
-    pub fn to_fen(&self) -> String {
-        let mut fen = String::new();
-
-        for y in (0..8).rev() {
-            let mut empty = 0;
-
-            for x in 0..8 {
-                let tile = Tile::new_xy(x, y).unwrap();
-
-                match self.get_piece_at_tile(tile) {
-                    Some((piece, is_white)) => {
-                        if empty > 0 {
-                            fen.push_str(&empty.to_string());
-                            empty = 0;
-                        }
-                        fen.push(piece.to_fen_char(is_white));
-                    }
-                    None => {
-                        empty += 1;
-                    }
-                }
-            }
-
-            if empty > 0 {
-                fen.push_str(&empty.to_string());
-            }
-
-            if y != 0 {
-                fen.push('/');
-            }
-        }
-
-        let turn = if self.white_turn { " w" } else { " b" };
-        format!("{}{}", fen, turn)
-    }
-
-    pub fn occupied(&self) -> Bitboard {
-        self.white.pieces() | self.black.pieces()
-    }
-    pub fn get_players(&self, white: bool) -> (&Player, &Player) {
-        if white {
-            (&self.white, &self.black)
-        } else {
-            (&self.black, &self.white)
-        }
-    }
-    pub fn get_players_mut(&mut self, white: bool) -> (&mut Player, &mut Player) {
-        match white {
-            true => (&mut self.white, &mut self.black),
-            false => (&mut self.black, &mut self.white),
-        }
-    }
     pub fn get_piece_at_tile(&self, tile: Tile) -> Option<(Piece, bool)> {
         let white_piece = self.white.get_piece(tile);
         let black_piece = self.black.get_piece(tile);
@@ -122,15 +67,12 @@ impl Board {
                 promote
             );
             
-            // Check move legality before proceeding with the move.
             if !self.generate_legal_moves_from(mov.from).contains(&mov) {
                 return Err(MoveError::IllegalMove);
             }
 
-            // Perform move if it's valid.
             let result = self.make_move_unchecked(mov);
 
-            // Check if this move places the king in check, and undo if it does.
             if self.is_in_check(!self.white_turn) {
                 self.undo_move();
                 return Err(MoveError::PiecePinned);
@@ -156,18 +98,7 @@ impl Board {
         }
         
         let piece_moved = self.get_piece_at_tile(mov.from);
-        // let legal_moves = self.generate_moves_from(mov.from);
-        
-        
-        
-        
-        // if !legal_moves.contains(&mov) {
-        //     return Err(MoveError::IllegalMove);
-        // }
-        // if legal_moves.len() == 0 && !self.is_in_check(self.white_turn) {
-        //     println!("Stalemate");
-        //     return Err(MoveError::Stalemate);
-        // }
+
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
@@ -201,7 +132,6 @@ impl Board {
                     }
                 }
             }
-            // return Err(MoveError::IllegalMove);
         }
         else {
             return Err(MoveError::NoPieceSelected);
@@ -260,6 +190,7 @@ impl Board {
         self.history.push(mov);
 
         self.white_turn = !self.white_turn;
+
         Ok(())
     }
     pub fn undo_move(&mut self) {
@@ -273,10 +204,8 @@ impl Board {
                 player.remove_piece(last_move.to);
                 player.place_piece(Piece::Pawn, last_move.to);
             }
-            // Move piece back
             player.move_piece(last_move.to, last_move.from);
             
-            // Restore captured piece if any
             if let Some(captured) = last_move.capture {
                 if let Some(passant) = last_move.en_passant {
                     if last_move.to == passant {
@@ -291,7 +220,6 @@ impl Board {
                 }
             }
 
-            // Handle castling reversal
             if last_move.piece == Piece::King {
                 match (last_move.white_turn, last_move.from, last_move.to) {
                     (true, Board::E1, Board::G1) => {
@@ -314,6 +242,7 @@ impl Board {
             self.en_passant = last_move.en_passant;
 
             self.white_turn = !self.white_turn;
+
         }
     }
 }

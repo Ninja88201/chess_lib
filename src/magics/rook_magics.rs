@@ -1,4 +1,4 @@
-pub const ROOK_MAGICS: [crate::lookup_tables::MagicEntry; 64] = [
+pub const ROOK_MAGICS: &[crate::lookup_tables::MagicEntry; 64] = &[
     crate::lookup_tables::MagicEntry { mask: 0x000101010101017e, magic: 0x0180052380400210, shift: 52, offset: 0 },
     crate::lookup_tables::MagicEntry { mask: 0x000202020202027c, magic: 0x0440012001500843, shift: 53, offset: 4096 },
     crate::lookup_tables::MagicEntry { mask: 0x000404040404047a, magic: 0x2600098201201041, shift: 53, offset: 6144 },

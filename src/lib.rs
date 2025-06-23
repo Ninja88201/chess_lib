@@ -1,13 +1,28 @@
 pub mod board;
+pub use board::Board;
 pub mod player;
+pub use player::Player;
+
+pub mod r#move;
+pub use r#move::Move;
+pub mod move_error;
+pub use move_error::MoveError;
+pub mod castling_rights;
+pub use castling_rights::CastlingRights;
+
+pub mod piece;
+pub use piece::Piece;
 pub mod bitboard;
+pub use bitboard::Bitboard;
 pub mod tile;
+pub use tile::Tile;
 pub mod lookup_tables;
-pub mod magics;
+
+
 
 #[cfg(test)]
 mod tests {
-    use crate::{board::Board, lookup_tables::{BISHOP_ATTACKS, BISHOP_MAGICS}};
+    use crate::board::Board;
 
     // Regular starting position
     static POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -46,5 +61,11 @@ mod tests {
         let mut board = Board::new_from_fen(POSITION).unwrap();
         let positions = board.positions(5);
         assert_eq!(positions, NODES[4]);
+    }
+    #[test]
+    fn depth_6() {
+        let mut board = Board::new_from_fen(POSITION).unwrap();
+        let positions = board.positions(6);
+        assert_eq!(positions, NODES[5]);
     }
 }

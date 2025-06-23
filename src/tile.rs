@@ -1,4 +1,6 @@
-use crate::bitboard::Bitboard;
+use std::fmt::Display;
+
+use crate::Bitboard;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Tile(pub u8);
@@ -91,5 +93,13 @@ impl Into<usize> for Tile
 {
     fn into(self) -> usize {
         self.0 as usize
+    }
+}
+impl Display for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (x, y) = self.get_coords();
+        let file = (b'a' + x) as char;
+        let rank = (y + 1).to_string();
+        write!(f, "{}{}", file, rank)
     }
 }

@@ -1,4 +1,4 @@
-use crate::{board::{Board, Move, Piece}, tile::Tile};
+use crate::{Piece, Board, Move, Tile, lookup_tables};
 
 impl Board {
     pub fn generate_legal_moves(&mut self, white: bool) -> Vec<Move> {
@@ -113,7 +113,7 @@ impl Board {
     fn generate_knight_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
-        let mask = self.tables.knight_table[Into::<usize>::into(tile)];
+        let mask = lookup_tables::knight_attacks_on(Into::<usize>::into(tile));
         for to in mask {
             if !self.is_square_occupied_by_friendly(to, white) {
                 moves.push(
@@ -160,61 +160,12 @@ impl Board {
         moves
     }
 
-    // Helper function to slide in a given direction
-    // fn slide_in_direction_moves(&self, tile: Tile, white: bool, delta: i8) -> Vec<Move> {
-    //     let mut result = Vec::new();
-    //     let mut current = tile;
-
-    //     loop {
-    //         let next = match delta {
-    //             8 => current.forward(true),
-    //             -8 => current.backward(true),
-    //             1 => current.right(true),
-    //             -1 => current.left(true),
-
-    //             9 => current.offset(1, 1),
-    //             -9 => current.offset(-1, -1),
-    //             7 => current.offset(-1, 1),
-    //             -7 => current.offset(1, -1),
-    //             _ => panic!("Not a valid delta")
-    //         };
-    //         if let Some(t) = next {
-    //             if self.is_square_occupied_by_friendly(t, white) {
-    //                 break;
-    //             }
-    
-    //             result.push(Move::new(
-    //                 self.white_turn,
-    //                 tile,
-    //                 t,
-    //                 self.get_piece_at_tile(tile).unwrap().0,
-    //                 self.get_piece_at_tile(t).map(|(p, _)| p),
-    //                 self.en_passant,
-    //                 self.white.castling,
-    //                 self.black.castling,
-    //                 None,
-    //             ));
-    
-    //             if self.is_square_occupied_by_enemy(t, white) {
-    //                 break;
-    //             }
-    //             current = t;
-    //         }
-    //         else {
-    //             break;
-    //         }
-
-
-    //     }
-
-    //     result
-    // }
     fn generate_king_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
         let mut moves = Vec::new();
 
         let (player, _) = self.get_players(white);
 
-        let mask = self.tables.king_table[Into::<usize>::into(tile)];
+        let mask = lookup_tables::king_attacks_on(Into::<usize>::into(tile));
         for t in mask {
             if !self.is_square_occupied_by_friendly(t, white)
                 && !self.tile_attacked(t, !white)
@@ -244,7 +195,6 @@ impl Board {
                 && !self.tile_attacked(Board::F1, false)
                 && !self.tile_attacked(Board::G1, false)
             {
-                // moves.set_bit(Board::E1 + 2, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
@@ -270,7 +220,6 @@ impl Board {
                 && !self.tile_attacked(Board::D1, false)
                 && !self.tile_attacked(Board::C1, false)
             {
-                // moves.set_bit(Board::C1, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
@@ -298,7 +247,6 @@ impl Board {
                 && !self.tile_attacked(Board::F8, true)
                 && !self.tile_attacked(Board::G8, true)
             {
-                // moves.set_bit(Board::G8, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
@@ -325,7 +273,6 @@ impl Board {
                 && !self.tile_attacked(Board::D8, true)
                 && !self.tile_attacked(Board::C8, true)
             {
-                // moves.set_bit(Board::C8, true);
                 moves.push(
                     Move::new(
                         self.white_turn,
