@@ -1,4 +1,4 @@
-use crate::{Bitboard, Board, Tile};
+use crate::{Bitboard, Board, MoveList, Tile};
 
 impl Board {
 
@@ -13,9 +13,24 @@ impl Board {
         return attacks.get_bit(tile);
     }
 
-    pub fn is_in_check(&self, white: bool) -> bool {
-        let (player, _) = self.get_players(white);
-        return self.tile_attacked(player.king_tile, !white);
+    pub fn is_in_check(&mut self, white: bool) -> bool {
+        if let Some(c) = self.check_cached {
+            return c
+        }
+        let (player, opponent) = if white {
+            (&self.white, &self.black)
+        } else {
+            (&self.black, &self.white)
+        };
+        let mut attacks = Bitboard::EMPTY;
+        for from in opponent.attackers() {
+            if let Some(piece) = opponent.get_piece(from) {
+                attacks |= self.generate_attacks_from_piece(from, piece, !white)
+            }
+        }
+        let check = attacks.get_bit(player.king_tile);
+        self.check_cached = Some(check);
+        return check;
     }
     pub fn is_checkmate(&mut self, white: bool) -> bool {
         if !self.is_in_check(white) {
@@ -25,15 +40,19 @@ impl Board {
         let (player, _) = self.get_players(white);
 
         for from in player.pieces() {
-            let possible_moves = self.generate_moves_from(from);
-            for m in possible_moves {{
-                if self.make_move_unchecked(m).is_ok() {
+            let mut moves = MoveList::new();
+            self.generate_moves_from(from, &mut moves);
+            for m in moves.iter() {
+                if self.make_move_unchecked(*m).is_ok() {
                     let in_check = self.is_in_check(white);
                     self.undo_move();
-                    if !in_check { return false; }
+                    if !in_check {
+                        return false;
+                    }
                 }
-            }}
+            }
         }
+
         true
     }
 }

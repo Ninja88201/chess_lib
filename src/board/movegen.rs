@@ -1,83 +1,55 @@
-use crate::{Piece, Board, Move, Tile, lookup_tables};
+use crate::{lookup_tables, Board, MoveList, Piece, Tile};
 
 impl Board {
-    pub fn generate_legal_moves(&mut self, white: bool) -> Vec<Move> {
-        let mut moves = Vec::new();
+    pub fn generate_legal_moves(&mut self, white: bool, moves: &mut MoveList) {
         let (player, _) = self.get_players(white);
         for t in player.pieces() {
-            for m in self.generate_legal_moves_from(t) {
-                moves.push(m);
-            }
+            self.generate_legal_moves_from(t, moves);
         }
-        moves
     }
-    pub fn generate_legal_moves_from(&mut self, from: Tile) -> Vec<Move> {
-        let piece = self.get_piece_at_tile(from);
-        if let Some((_, white)) = piece {
-            let mut legal_moves = Vec::new();
-            for m in self.generate_moves_from(from) {
-                let _ = self.make_move_unchecked(m);
-
-                if !self.is_in_check(white) {
-                    legal_moves.push(m);
-                        
+    pub fn generate_legal_moves_from(&mut self, from: Tile, moves: &mut MoveList) {
+        if let Some((_, white)) = self.get_piece_at_tile(from) {
+            let mut pseudo_moves = MoveList::new();
+                self.generate_moves_from(from, &mut pseudo_moves);
+                for m in pseudo_moves.iter() {
+                    if self.make_move_unchecked(*m).is_ok() {
+                        if !self.is_in_check(white) {
+                            moves.push(*m);
+                        }
+                        self.undo_move();
+                    }
                 }
-                self.undo_move();
-            }
-            legal_moves
-        } else {
-            Vec::new()
         }
     }
 
-    pub fn generate_moves(&self, white: bool) -> Vec<Move> {
+    pub fn generate_moves(&self, white: bool, moves: &mut MoveList) {
         let (player, _) = self.get_players(white);
-        let mut moves = Vec::new();
         for s in player.pieces() {
-            for m in self.generate_moves_from(s) {
-                moves.push(m);
-            }
+            self.generate_moves_from(s, moves);
         }
-        moves
     }
-    pub fn generate_moves_from(&self, square: Tile) -> Vec<Move> {
-        let (piece, white) = match self.get_piece_at_tile(square) {
-            Some(x) => x,
-            None => return Vec::new(),
-        };
-        return self.generate_moves_from_piece(square, piece, white);
+
+    pub fn generate_moves_from(&self, tile: Tile, moves: &mut MoveList) {
+        if let Some((piece, white)) = self.get_piece_at_tile(tile) {
+            self.generate_moves_from_piece(tile, piece, white, moves);
+        }
     }
-    pub fn generate_moves_from_piece(&self, square: Tile, piece: Piece, white: bool) -> Vec<Move> {
+    pub fn generate_moves_from_piece(&self, tile: Tile, piece: Piece, white: bool, moves: &mut MoveList) {
         match piece {
-            Piece::Pawn => self.generate_pawn_moves(square, white),
-            Piece::Knight => self.generate_knight_moves(square, white),
-            Piece::Bishop => self.generate_sliding_moves(square, white, false, true),
-            Piece::Rook => self.generate_sliding_moves(square, white, true, false),
-            Piece::Queen => self.generate_sliding_moves(square, white, true, true),
-            Piece::King => self.generate_king_moves(square, white),
+            Piece::Pawn => self.generate_pawn_moves(tile, white, moves),
+            Piece::Knight => self.generate_knight_moves(tile, white, moves),
+            Piece::Bishop => self.generate_sliding_moves(tile, white, false, true, moves),
+            Piece::Rook => self.generate_sliding_moves(tile, white, true, false, moves),
+            Piece::Queen => self.generate_sliding_moves(tile, white, true, true, moves),
+            Piece::King => self.generate_king_moves(tile, white, moves),
         }
     }
-    fn try_push_pawn_move(&self, tile: Tile, to: Tile, white: bool, capture: Option<Piece>) -> Vec<Move> {
-        let mut result = Vec::new();
-        if to.is_promotion(white) {
-            for i in 1..5 {
-                result.push(self.create_move(tile, to, Piece::Pawn, capture, Some(Piece::from_index(i))));
-            }
-        } else {
-            result.push(self.create_move(tile, to, Piece::Pawn, capture, None));
-        }
-        result
-    }
 
-    fn generate_pawn_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
-        let mut moves = Vec::new();
-
-        // Single push forward
+    fn generate_pawn_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
         if let Some(one_step) = tile.forward(white) {
             if !self.occupied().get_bit(one_step) {
-                moves.extend(self.try_push_pawn_move(tile, one_step, white, None));
+                self.try_push_pawn_move(tile, one_step, white, None, moves);
 
-                // Double push from starting rank
                 if tile.is_pawn_start(white) {
                     if let Some(two_step) = one_step.forward(white) {
                         if !self.occupied().get_bit(two_step) {
@@ -88,101 +60,77 @@ impl Board {
             }
         }
 
-        // Captures (including en passant)
         for maybe_target in [
             tile.forward(white).and_then(|t| t.left(white)),
             tile.forward(white).and_then(|t| t.right(white)),
         ] {
             if let Some(to) = maybe_target {
-                // En Passant
                 if Some(to) == self.en_passant {
                     moves.push(self.create_move(tile, to, Piece::Pawn, Some(Piece::Pawn), None));
                     continue;
                 }
 
-                // Normal capture
                 if self.is_square_occupied_by_enemy(to, white) {
                     let captured = self.get_piece_at_tile(to).map(|(p, _)| p);
-                    moves.extend(self.try_push_pawn_move(tile, to, white, captured));
+                    self.try_push_pawn_move(tile, to, white, captured, moves);
                 }
             }
         }
-
-        moves
     }
-    fn generate_knight_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
-        let mut moves = Vec::new();
 
+    fn try_push_pawn_move(&self, from: Tile, to: Tile, white: bool, capture: Option<Piece>, moves: &mut MoveList) {
+        if to.is_promotion(white) {
+            for i in 1..5 {
+                moves.push(self.create_move(from, to, Piece::Pawn, capture, Some(Piece::from_index(i))));
+            }
+        } else {
+            moves.push(self.create_move(from, to, Piece::Pawn, capture, None));
+        }
+    }
+    fn generate_knight_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
         let mask = lookup_tables::knight_attacks_on(Into::<usize>::into(tile));
         for to in mask {
             if !self.is_square_occupied_by_friendly(to, white) {
-                moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        to,
-                        Piece::Knight,
-                        self.get_piece_at_tile(to).map(|(p, _)| p),
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None,
-                    )
-                );
+                moves.push(self.create_move(
+                    tile,
+                    to,
+                    Piece::Knight,
+                    self.get_piece_at_tile(to).map(|(p, _)| p),
+                    None,
+                ));
             }
         }
-
-        moves
     }
-    fn generate_sliding_moves(&self, tile: Tile, white: bool, straight: bool, diagonal: bool) -> Vec<Move> {
-        let mut moves = Vec::new();
-
+    fn generate_sliding_moves(&self, tile: Tile, white: bool, straight: bool, diagonal: bool, moves: &mut MoveList) {
         let attacks = self.generate_sliding_attacks(tile, straight, diagonal);
 
         for to in attacks {
             if self.is_square_occupied_by_friendly(to, white) {
                 continue;
             }
-
-            moves.push(Move::new(
-                self.white_turn,
+            moves.push(self.create_move(
                 tile,
                 to,
                 self.get_piece_at_tile(tile).unwrap().0,
                 self.get_piece_at_tile(to).map(|(p, _)| p),
-                self.en_passant,
-                self.white.castling,
-                self.black.castling,
                 None,
             ));
         }
-
-        moves
     }
 
-    fn generate_king_moves(&self, tile: Tile, white: bool) -> Vec<Move> {
-        let mut moves = Vec::new();
-
+    fn generate_king_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
         let (player, _) = self.get_players(white);
 
         let mask = lookup_tables::king_attacks_on(Into::<usize>::into(tile));
         for t in mask {
-            if !self.is_square_occupied_by_friendly(t, white)
-                && !self.tile_attacked(t, !white)
-            {
-                moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        t,
-                        Piece::King,
-                        self.get_piece_at_tile(t).map(|(p, _)| p),
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None,
-                    )
-                );
+            if !self.is_square_occupied_by_friendly(t, white) && !self.tile_attacked(t, !white) {
+                moves.push(self.create_move(
+                    tile,
+                    t,
+                    Piece::King,
+                    self.get_piece_at_tile(t).map(|(p, _)| p),
+                    None,
+                ));
             }
         }
 
@@ -196,20 +144,11 @@ impl Board {
                 && !self.tile_attacked(Board::G1, false)
             {
                 moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        Board::G1,
-                        Piece::King,
-                        match self.get_piece_at_tile(Board::G1) {
-                            Some((p, _)) => Some(p),
-                            None => None,
-                        },
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None
-                    )
+                    self.create_move(tile, 
+                    Board::G1, 
+                    Piece::King, 
+                    self.get_piece_at_tile(Board::G1).map(|(p, _)| p),
+                    None)
                 );
             }
             // Long (c1)
@@ -221,20 +160,11 @@ impl Board {
                 && !self.tile_attacked(Board::C1, false)
             {
                 moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        Board::C1,
-                        Piece::King,
-                        match self.get_piece_at_tile(Board::C1) {
-                            Some((p, _)) => Some(p),
-                            None => None,
-                        },
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None
-                    )
+                    self.create_move(tile, 
+                    Board::C1, 
+                    Piece::King, 
+                    self.get_piece_at_tile(Board::C1).map(|(p, _)| p),
+                    None)
                 );
             }
         }
@@ -248,20 +178,11 @@ impl Board {
                 && !self.tile_attacked(Board::G8, true)
             {
                 moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        Board::G8,
-                        Piece::King,
-                        match self.get_piece_at_tile(Board::G8) {
-                            Some((p, _)) => Some(p),
-                            None => None,
-                        },
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None
-                    )
+                    self.create_move(tile, 
+                    Board::G8, 
+                    Piece::King, 
+                    self.get_piece_at_tile(Board::G8).map(|(p, _)| p),
+                    None)
                 );
 
             }
@@ -274,25 +195,14 @@ impl Board {
                 && !self.tile_attacked(Board::C8, true)
             {
                 moves.push(
-                    Move::new(
-                        self.white_turn,
-                        tile,
-                        Board::C8,
-                        Piece::King,
-                        match self.get_piece_at_tile(Board::C8) {
-                            Some((p, _)) => Some(p),
-                            None => None,
-                        },
-                        self.en_passant,
-                        self.white.castling,
-                        self.black.castling,
-                        None
-                    )
+                    self.create_move(tile, 
+                    Board::C8, 
+                    Piece::King, 
+                    self.get_piece_at_tile(Board::C8).map(|(p, _)| p),
+                    None)
                 );
             }
         }
-
-        moves
     }
     fn is_square_occupied_by_enemy(&self, square: Tile, white: bool) -> bool {
         let (_, opponent) = self.get_players(white);

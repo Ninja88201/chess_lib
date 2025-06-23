@@ -19,4 +19,6 @@ pub struct Board {
     pub white_turn: bool,
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
+
+    check_cached: Option<bool>,
 }

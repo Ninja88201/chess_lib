@@ -1,8 +1,7 @@
 use std::io::stdin;
 
-use chess_lib::{Bitboard, Board, Piece, Tile};
+use chess_lib::{Bitboard, Board, MoveList, Piece, Tile};
 use macroquad::prelude::*;
-use macroquad::rand::ChooseRandom;
 
 const TILE_SIZE: f32 = 80.0;
 const SPRITE_SIZE: f32 = 189.0;
@@ -91,8 +90,9 @@ async fn main() {
             }
         }
         if is_key_pressed(KeyCode::Space) {
-            let moves = board.generate_legal_moves(board.white_turn);
-            let _ = board.make_move_unchecked(moves.choose().copied().unwrap());
+            let mut moves = MoveList::new();
+            board.generate_legal_moves(board.white_turn, &mut moves);
+            let _ = board.make_move_unchecked(moves.choose_random().unwrap());
         }
 
         render_board(&piece_atlas, &mut board, selected_tile, flipped);
@@ -277,7 +277,9 @@ fn get_piece_sprite_rect(piece: Piece, white: bool) -> Rect {
     )
 }
 fn render_moves(board: &mut Board, selected: Tile, flipped: bool) {
-    for m in board.generate_legal_moves_from(selected) {
+    let mut moves = MoveList::new();
+    board.generate_legal_moves_from(selected, &mut moves);
+    for m in moves.iter() {
         let (x, y) = tile_to_screen(m.to, flipped);
         draw_circle(
             x + (TILE_SIZE / 2.0),

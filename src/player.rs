@@ -56,6 +56,13 @@ impl Player {
             | self.bb[Piece::Queen as usize]
             | self.king_tile.as_mask()
     }
+    pub fn attackers(&self) -> Bitboard {
+        self.bb[Piece::Pawn as usize]
+            | self.bb[Piece::Knight as usize]
+            | self.bb[Piece::Bishop as usize]
+            | self.bb[Piece::Rook as usize]
+            | self.bb[Piece::Queen as usize]
+    }
 
     pub fn remove_piece(&mut self, tile: Tile) -> Option<Piece> {
         if tile == self.king_tile {

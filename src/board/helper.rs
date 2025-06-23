@@ -20,6 +20,7 @@ impl Board
             self.white.castling,
             self.black.castling,
             promotion,
+            self.check_cached
         )
     }
     pub fn to_fen(&self) -> String {
@@ -97,6 +98,7 @@ impl Board
     pub fn occupied(&self) -> Bitboard {
         self.white.pieces() | self.black.pieces()
     }
+    #[inline(always)]
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {
         if white {
             (&self.white, &self.black)

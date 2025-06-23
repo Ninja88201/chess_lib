@@ -5,6 +5,8 @@ pub use player::Player;
 
 pub mod r#move;
 pub use r#move::Move;
+pub mod move_list;
+pub use move_list::MoveList;
 pub mod move_error;
 pub use move_error::MoveError;
 pub mod castling_rights;

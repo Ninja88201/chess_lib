@@ -1,4 +1,4 @@
-use crate::{Tile, Piece, MoveError, Move, CastlingRights, Board};
+use crate::{Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
 
 impl Board {
     pub fn get_piece_at_tile(&self, tile: Tile) -> Option<(Piece, bool)> {
@@ -11,37 +11,43 @@ impl Board {
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>> 
-    (&mut self, from: Tile, to: Tile, promotion: F, context: C) -> Result<(), MoveError> {
+    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>>(
+        &mut self,
+        from: Tile,
+        to: Tile,
+        promotion: F,
+        context: C
+    ) -> Result<(), MoveError> {
         if from == to {
-            return Err(MoveError::SameTile)
+            return Err(MoveError::SameTile);
         }
+
         if self.is_checkmate(self.white_turn) {
             return Err(MoveError::Checkmate);
         }
+
         let result = self.get_piece_at_tile(from);
         if let Some((p, w)) = result {
             if w != self.white_turn {
-                return Err(MoveError::WrongTurn)
+                return Err(MoveError::WrongTurn);
             }
+
             let mut promote = None;
-            if to.is_promotion(w) && p == Piece::Pawn && from.get_neighbours().get_bit(to){
+            if to.is_promotion(w) && p == Piece::Pawn && from.get_neighbours().get_bit(to) {
                 let promotion = promotion(to, context);
                 match promotion.await {
-                    Some(p) => {
-                        promote = Some(p);           
-                    },
+                    Some(p) => promote = Some(p),
                     None => return Err(MoveError::Cancelled),
                 }
             }
-            let mut capture: Option<Piece> = None;
-            capture = match self.get_piece_at_tile(to) {
+
+            let mut capture = match self.get_piece_at_tile(to) {
                 Some((p, w)) => {
                     if w == self.white_turn {
                         return Err(MoveError::FriendlyCapture);
                     }
                     Some(p)
-                },
+                }
                 None => {
                     if let Some(ep) = self.en_passant {
                         if to == ep && p == Piece::Pawn {
@@ -54,20 +60,13 @@ impl Board {
                     }
                 }
             };
-            
-            let mov = Move::new(
-                self.white_turn, 
-                from, 
-                to, 
-                p, 
-                capture,
-                self.en_passant, 
-                self.white.castling, 
-                self.black.castling ,
-                promote
-            );
-            
-            if !self.generate_legal_moves_from(mov.from).contains(&mov) {
+
+            let mov = self.create_move(from, to, p, capture, promote);
+
+            let mut legal = MoveList::new();
+            self.generate_legal_moves_from(from, &mut legal);
+
+            if !legal.iter().any(|m| *m == mov) {
                 return Err(MoveError::IllegalMove);
             }
 
@@ -78,8 +77,10 @@ impl Board {
                 return Err(MoveError::PiecePinned);
             }
 
-            // Handle stalemate or checkmate
-            if self.generate_legal_moves(self.white_turn).len() == 0 && !self.is_in_check(self.white_turn) {
+            // Stalemate
+            let mut remaining = MoveList::new();
+            self.generate_legal_moves(self.white_turn, &mut remaining);
+            if remaining.is_empty() && !self.is_in_check(self.white_turn) {
                 println!("Stalemate");
             }
 
@@ -190,6 +191,7 @@ impl Board {
         self.history.push(mov);
 
         self.white_turn = !self.white_turn;
+        self.check_cached = None;
 
         Ok(())
     }
@@ -240,6 +242,7 @@ impl Board {
             self.white.castling = last_move.prev_white_castle;
             self.black.castling = last_move.prev_black_castle;
             self.en_passant = last_move.en_passant;
+            self.check_cached = last_move.check_cached;
 
             self.white_turn = !self.white_turn;
 
