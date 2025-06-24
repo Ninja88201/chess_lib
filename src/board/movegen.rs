@@ -46,10 +46,12 @@ impl Board {
     }
 
     fn generate_pawn_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
+        // Single push
         if let Some(one_step) = tile.forward(white) {
             if !self.occupied().get_bit(one_step) {
                 self.try_push_pawn_move(tile, one_step, white, None, moves);
-
+                
+                // Double push
                 if tile.is_pawn_start(white) {
                     if let Some(two_step) = one_step.forward(white) {
                         if !self.occupied().get_bit(two_step) {
@@ -60,6 +62,7 @@ impl Board {
             }
         }
 
+        // Diagonal captures and en passant
         for maybe_target in [
             tile.forward(white).and_then(|t| t.left(white)),
             tile.forward(white).and_then(|t| t.right(white)),
@@ -135,73 +138,69 @@ impl Board {
         }
 
         // Castling
-        if white && tile == Board::E1 {
-            // Short (g1)
-            if self.castling.contains(CastlingRights::WHITE_KINGSIDE)
-                && self.get_piece_at_tile(Board::F1).is_none()
-                && self.get_piece_at_tile(Board::G1).is_none()
-                && !self.tile_attacked(Board::F1, false)
-                && !self.tile_attacked(Board::G1, false)
-            {
-                moves.push(
-                    self.create_move(tile, 
-                    Board::G1, 
-                    Piece::King, 
-                    None,
-                    None)
-                );
-            }
-            // Long (c1)
-            if self.castling.contains(CastlingRights::WHITE_QUEENSIDE)
-                && self.get_piece_at_tile(Board::D1).is_none()
-                && self.get_piece_at_tile(Board::C1).is_none()
-                && self.get_piece_at_tile(Board::B1).is_none()
-                && !self.tile_attacked(Board::D1, false)
-                && !self.tile_attacked(Board::C1, false)
-            {
-                moves.push(
-                    self.create_move(tile, 
-                    Board::C1, 
-                    Piece::King, 
-                    None,
-                    None)
-                );
-            }
+        // Short (g1)
+        if self.castling.contains(CastlingRights::WHITE_KINGSIDE) && self.white.king_tile == tile
+            && self.get_piece_at_tile(Board::F1).is_none()
+            && self.get_piece_at_tile(Board::G1).is_none()
+            && !self.tile_attacked(Board::F1, false)
+            && !self.tile_attacked(Board::G1, false)
+        {
+            moves.push(
+                self.create_move(tile, 
+                Board::G1, 
+                Piece::King, 
+                None,
+                None)
+            );
+        }
+        // Long (c1)
+        if self.castling.contains(CastlingRights::WHITE_QUEENSIDE) && self.white.king_tile == tile
+            && self.get_piece_at_tile(Board::D1).is_none()
+            && self.get_piece_at_tile(Board::C1).is_none()
+            && self.get_piece_at_tile(Board::B1).is_none()
+            && !self.tile_attacked(Board::D1, false)
+            && !self.tile_attacked(Board::C1, false)
+        {
+            moves.push(
+                self.create_move(tile, 
+                Board::C1, 
+                Piece::King, 
+                None,
+                None)
+            );
         }
 
-        if !white && tile == Board::E8 {
-            // Short (g8)
-            if self.castling.contains(CastlingRights::BLACK_KINGSIDE)
-                && self.get_piece_at_tile(Board::F8).is_none()
-                && self.get_piece_at_tile(Board::G8).is_none()
-                && !self.tile_attacked(Board::F8, true)
-                && !self.tile_attacked(Board::G8, true)
-            {
-                moves.push(
-                    self.create_move(tile, 
-                    Board::G8, 
-                    Piece::King, 
-                    None,
-                    None)
-                );
+        // Short (g8)
+        if self.castling.contains(CastlingRights::BLACK_KINGSIDE) && self.black.king_tile == tile
+            && self.get_piece_at_tile(Board::F8).is_none()
+            && self.get_piece_at_tile(Board::G8).is_none()
+            && !self.tile_attacked(Board::F8, true)
+            && !self.tile_attacked(Board::G8, true)
+        {
+            moves.push(
+                self.create_move(tile, 
+                Board::G8, 
+                Piece::King, 
+                None,
+                None)
+            );
 
-            }
-            // Long (c8)
-            if self.castling.contains(CastlingRights::BLACK_QUEENSIDE)
-                && self.get_piece_at_tile(Board::D8).is_none()
-                && self.get_piece_at_tile(Board::C8).is_none()
-                && self.get_piece_at_tile(Board::B8).is_none()
-                && !self.tile_attacked(Board::D8, true)
-                && !self.tile_attacked(Board::C8, true)
-            {
-                moves.push(
-                    self.create_move(tile, 
-                    Board::C8, 
-                    Piece::King, 
-                    None,
-                    None)
-                );
-            }
+        }
+        // Long (c8)
+        if self.castling.contains(CastlingRights::BLACK_QUEENSIDE) && self.black.king_tile == tile
+            && self.get_piece_at_tile(Board::D8).is_none()
+            && self.get_piece_at_tile(Board::C8).is_none()
+            && self.get_piece_at_tile(Board::B8).is_none()
+            && !self.tile_attacked(Board::D8, true)
+            && !self.tile_attacked(Board::C8, true)
+        {
+            moves.push(
+                self.create_move(tile, 
+                Board::C8, 
+                Piece::King, 
+                None,
+                None)
+            );
         }
     }
     fn is_square_occupied_by_enemy(&self, square: Tile, white: bool) -> bool {

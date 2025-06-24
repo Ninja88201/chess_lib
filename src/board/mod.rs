@@ -22,5 +22,6 @@ pub struct Board {
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
 
-    check_cached: Option<bool>,
+    white_cache: Option<bool>,
+    black_cache: Option<bool>,
 }

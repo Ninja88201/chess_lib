@@ -19,7 +19,8 @@ impl Board
             self.en_passant,
             self.castling,
             promotion,
-            self.check_cached
+            self.white_cache,
+            self.black_cache,
         )
     }
     #[inline(always)]

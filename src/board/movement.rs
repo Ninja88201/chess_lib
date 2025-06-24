@@ -142,7 +142,7 @@ impl Board {
                 false => CastlingRights::BLACK_KINGSIDE | CastlingRights::BLACK_QUEENSIDE,
             };
             self.castling.remove(rights);
-            match (mov.white_turn, mov.from, mov.to) {
+            match (self.white_turn, mov.from, mov.to) {
                 (true, Board::E1, Board::G1) => {
                     player.move_piece(Board::H1, Board::F1);
                 }
@@ -176,14 +176,14 @@ impl Board {
         self.history.push(mov);
 
         self.white_turn = !self.white_turn;
-        self.check_cached = None;
+        self.white_cache = None;
+        self.black_cache = None;
 
         Ok(())
     }
     pub fn undo_move(&mut self) {
-        let white = self.white_turn;
         if let Some(last_move) = self.history.pop() {
-            let (player, opponent) = match last_move.white_turn {
+            let (player, opponent) = match !self.white_turn {
                 true => (&mut self.white, &mut self.black),
                 false => (&mut self.black, &mut self.white),
             };
@@ -194,21 +194,15 @@ impl Board {
             player.move_piece(last_move.to, last_move.from);
             
             if let Some(captured) = last_move.capture {
-                if let Some(passant) = last_move.en_passant {
-                    if last_move.to == passant {
-                        opponent.place_piece(Piece::Pawn, last_move.to.backward(last_move.white_turn).unwrap());
-                    }
-                    else {
-                        opponent.place_piece(captured, last_move.to);
-                    }
-                }
-                else {
+                if last_move.piece == Piece::Pawn && last_move.en_passant == Some(last_move.to) {
+                    opponent.place_piece(Piece::Pawn, last_move.to.backward(!self.white_turn).unwrap());
+                } else {
                     opponent.place_piece(captured, last_move.to);
                 }
             }
 
             if last_move.piece == Piece::King {
-                match (last_move.white_turn, last_move.from, last_move.to) {
+                match (!self.white_turn, last_move.from, last_move.to) {
                     (true, Board::E1, Board::G1) => {
                         player.move_piece(Board::F1, Board::H1);
                     }
@@ -226,7 +220,8 @@ impl Board {
             }
             self.castling = last_move.prev_castle;
             self.en_passant = last_move.en_passant;
-            self.check_cached = last_move.check_cached;
+            self.white_cache = last_move.white_cache;
+            self.black_cache = last_move.black_cache;
 
             self.white_turn = !self.white_turn;
 

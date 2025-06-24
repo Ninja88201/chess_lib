@@ -8,7 +8,7 @@ impl Board {
     pub const A8: Tile = Tile(56);
 
     pub const B1: Tile = Tile(1);
-    pub const B8: Tile = Tile(55);
+    pub const B8: Tile = Tile(57);
 
     pub const C1: Tile = Tile(2);
     pub const C8: Tile = Tile(58);

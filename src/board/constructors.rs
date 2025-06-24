@@ -11,7 +11,8 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
             
-            check_cached: None,
+            white_cache: None,
+            black_cache: None,
         }
     }
     pub fn new_empty() -> Self {
@@ -24,7 +25,8 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
 
-            check_cached: None,
+            white_cache: None,
+            black_cache: None,
         }
     }
     pub fn new_from_fen(fen: &str) -> Result<Self, String> {

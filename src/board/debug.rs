@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 
 use crate::{Board, MoveList};
-use rayon::prelude::*;
 
 impl Board
 {
@@ -42,7 +40,7 @@ impl Board
 
         for &m in moves.iter() {
             if self.make_move_unchecked(m).is_ok() {
-                if !self.is_in_check(!self.white_turn) {
+                if !self.is_in_check(!self.white_turn) && !self.is_checkmate(!self.white_turn) {
                     let count = self.positions(depth - 1);
                     positions += count;
                     println!("{}, {}", m, count)

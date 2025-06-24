@@ -4,24 +4,26 @@ impl Board {
 
     pub fn tile_attacked(&self, tile: Tile, by_white: bool) -> bool {
         let (opponent, _) = self.get_players(by_white);
-        for from in opponent.pieces() {
-            if let Some(piece) = opponent.get_piece(from) {
-                let attacks = self.generate_attacks_from_piece(from, piece, by_white);
-                if attacks.get_bit(tile) {
-                    return true;
-                }
-            }
-        }
-        false
+        opponent.pieces()
+            .find(|&from| {
+                opponent.get_piece(from)
+                    .map_or(false, |piece| self.generate_attacks_from_piece(from, piece, by_white).get_bit(tile))
+            })
+            .is_some()
     }
 
     pub fn is_in_check(&mut self, white: bool) -> bool {
-        if let Some(c) = self.check_cached {
-            if self.white_turn == white {
-                return c
-            } else {
-                return false;
-            }
+        match white {
+            true => {
+                if let Some(c) = self.white_cache {
+                    return c;
+                }
+            },
+            false => {
+                if let Some(c) = self.black_cache {
+                    return c;
+                }
+            },
         }
         let (player, opponent) = if white {
             (&self.white, &self.black)
@@ -35,7 +37,10 @@ impl Board {
             }
         }
         let check = attacks.get_bit(player.king_tile);
-        self.check_cached = Some(check);
+        match white {
+            true => self.white_cache = Some(check),
+            false => self.black_cache = Some(check),
+        }
         return check;
     }
     pub fn is_checkmate(&mut self, white: bool) -> bool {
@@ -44,12 +49,7 @@ impl Board {
         }
         let mut moves = MoveList::new();
         self.generate_legal_moves(white, &mut moves);
-        if moves.len() <= 0 {
-            return true;
-        }
-        else {
-            return false;
-        }
+        moves.is_empty()
         
 
         // let (player, _) = self.get_players(white);

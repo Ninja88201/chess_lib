@@ -1,4 +1,4 @@
-use crate::{CastlingRights, Board, Tile};
+use crate::{Board, Tile};
 
 impl Board
 {
@@ -48,7 +48,7 @@ impl Board
         };
 
         let halfmove_clock = 0;
-        let fullmove_number = self.history.iter().filter(|m| !m.white_turn == true).count() / 2 + 1;
+        let fullmove_number = 0;
 
         // Final FEN string
         format!(

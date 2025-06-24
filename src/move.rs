@@ -4,8 +4,6 @@ use crate::{Board, CastlingRights, Piece, Tile};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
-    pub white_turn: bool,
-
     // Movement
     pub from: Tile,
     pub to: Tile,
@@ -22,7 +20,8 @@ pub struct Move {
     pub en_passant: Option<Tile>,
 
     // Cached data
-    pub check_cached: Option<bool>
+    pub white_cache: Option<bool>,
+    pub black_cache: Option<bool>,
 }
 impl Move {
     pub fn new(
@@ -34,10 +33,10 @@ impl Move {
         en_passant: Option<Tile>,
         prev_castle: CastlingRights,
         promoted_to: Option<Piece>,
-        check_cached: Option<bool>,
+        white_cache: Option<bool>,
+        black_cache: Option<bool>,
     ) -> Self {
         Self {
-            white_turn,
             from,
             to,
             piece,
@@ -45,7 +44,8 @@ impl Move {
             en_passant,
             prev_castle,
             promoted_to,
-            check_cached
+            white_cache,
+            black_cache,
         }
     }
 }
@@ -53,7 +53,6 @@ impl Default for Move
 {
     fn default() -> Self {
         Self { 
-            white_turn: true, 
             from: Board::A1, 
             to: Board::A1, 
             piece: Piece::Pawn, 
@@ -61,7 +60,8 @@ impl Default for Move
             prev_castle: CastlingRights::ALL, 
             promoted_to: None, 
             en_passant: None, 
-            check_cached: None }
+            white_cache: None,
+            black_cache: None, }
     }
 }
 impl fmt::Display for Move {
