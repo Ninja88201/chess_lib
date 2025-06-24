@@ -35,16 +35,15 @@ impl Board
         }
 
         let mut moves = MoveList::new();
-        self.generate_moves(self.white_turn, &mut moves);
+        // self.generate_moves(self.white_turn, &mut moves);
+        self.generate_legal_moves(self.white_turn, &mut moves);
         let mut positions = 0;
 
         for &m in moves.iter() {
             if self.make_move_unchecked(m).is_ok() {
-                if !self.is_in_check(!self.white_turn) && !self.is_checkmate(!self.white_turn) {
-                    let count = self.positions(depth - 1);
-                    positions += count;
-                    println!("{}, {}", m, count)
-                }
+                let count = self.positions(depth - 1);
+                positions += count;
+                println!("{}, {}", m, count);
                 self.undo_move();
             }
         }

@@ -50,7 +50,7 @@ impl Board {
         if let Some(one_step) = tile.forward(white) {
             if !self.occupied().get_bit(one_step) {
                 self.try_push_pawn_move(tile, one_step, white, None, moves);
-                
+
                 // Double push
                 if tile.is_pawn_start(white) {
                     if let Some(two_step) = one_step.forward(white) {
@@ -122,7 +122,7 @@ impl Board {
     }
 
     fn generate_king_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
-        let (player, _) = self.get_players(white);
+        // let (player, _) = self.get_players(white);
 
         let mask = lookup_tables::king_attacks_on(Into::<usize>::into(tile));
         for t in mask {
@@ -139,6 +139,9 @@ impl Board {
 
         // Castling
         // Short (g1)
+        if self.tile_attacked(tile, !white) {
+            return;
+        }
         if self.castling.contains(CastlingRights::WHITE_KINGSIDE) && self.white.king_tile == tile
             && self.get_piece_at_tile(Board::F1).is_none()
             && self.get_piece_at_tile(Board::G1).is_none()
