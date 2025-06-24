@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use crate::{Board, MoveList};
 use rayon::prelude::*;
-
 
 impl Board
 {
@@ -12,10 +13,10 @@ impl Board
 
         let mut moves = MoveList::new();
         self.generate_moves(self.white_turn, &mut moves);
-
         let mut positions = 0;
-        for m in moves.iter() {
-            if self.make_move_unchecked(*m).is_ok() {
+
+        for &m in moves.iter() {
+            if self.make_move_unchecked(m).is_ok() {
                 if !self.is_in_check(!self.white_turn) {
                     if depth == 1 {
                         positions += 1;
@@ -29,30 +30,59 @@ impl Board
 
         positions
     }
-
-    pub fn positions_parallel(&mut self, depth: i32) -> i64 {
+    #[inline(always)]
+    pub fn positions_divide(&mut self, depth: i32) -> i64 {
         if depth == 0 {
             return 1;
         }
 
         let mut moves = MoveList::new();
         self.generate_moves(self.white_turn, &mut moves);
+        let mut positions = 0;
 
-        let board = self.clone(); // save current board state
-
-        moves
-            .iter()
-            .par_bridge() // rayon: parallel iterator
-            .map(|m| {
-                let mut board = board.clone();
-                if board.make_move_unchecked(*m).is_ok() {
-                    if !board.is_in_check(!board.white_turn) {
-                        return board.positions(depth - 1);
-                    }
+        for &m in moves.iter() {
+            if self.make_move_unchecked(m).is_ok() {
+                if !self.is_in_check(!self.white_turn) {
+                    let count = self.positions(depth - 1);
+                    positions += count;
+                    println!("{}, {}", m, count)
                 }
-                0
-            })
-            .sum()
-    }
+                self.undo_move();
+            }
+        }
 
+        positions
+    }
+    
+    // pub fn positions_memo(&mut self, depth: i32, memo: &mut HashMap<String, i64>) -> i64 {
+    //     if depth == 0 {
+    //         return 1;
+    //     }
+
+    //     // Hash the board state and depth to use as a cache key
+    //     let board_key = self.get_board_hash();
+    //     if let Some(&cached_positions) = memo.get(&(board_key.clone(), depth)) {
+    //         return cached_positions;
+    //     }
+
+    //     let mut moves = MoveList::new();
+    //     self.generate_moves(self.white_turn, &mut moves);
+    //     let mut positions = 0;
+
+    //     for &m in moves.iter() {
+    //         if self.make_move_unchecked(m).is_ok() {
+    //             if !self.is_in_check(!self.white_turn) {
+    //                 if depth == 1 {
+    //                     positions += 1;
+    //                 } else {
+    //                     positions += self.positions_memo(depth - 1, memo);
+    //                 }
+    //             }
+    //             self.undo_move();
+    //         }
+    //     }
+
+    //     memo.insert((board_key.clone(), depth), positions);
+    //     positions
+    // }
 }

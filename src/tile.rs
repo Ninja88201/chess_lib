@@ -39,12 +39,9 @@ impl Tile {
 
         result
     }
+    #[inline(always)]
     pub fn as_mask(&self) -> Bitboard {
-        if self.0 >= 64 { 
-            Bitboard::EMPTY
-        } else {
-            Bitboard::new(1u64 << self.0)
-        }
+        Bitboard::new(1u64 << self.0)
     }
     pub fn offset(&self, dx: i8, dy: i8) -> Option<Self> {
         let (x, y) = self.get_coords();
@@ -89,17 +86,16 @@ impl Tile {
         }
     }
 }
-impl Into<usize> for Tile
-{
-    fn into(self) -> usize {
-        self.0 as usize
-    }
-}
 impl Display for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (x, y) = self.get_coords();
         let file = (b'a' + x) as char;
         let rank = (y + 1).to_string();
         write!(f, "{}{}", file, rank)
+    }
+}
+impl From<Tile> for usize {
+    fn from(tile: Tile) -> Self {
+        tile.0 as usize
     }
 }

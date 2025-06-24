@@ -32,3 +32,16 @@ impl Piece {
         if white { c.to_ascii_uppercase() } else { c }
     }
 }
+impl std::fmt::Display for Piece {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let c = match self {
+            Piece::Pawn => "",
+            Piece::Knight => "N",
+            Piece::Bishop => "B",
+            Piece::Rook => "R",
+            Piece::Queen => "Q",
+            Piece::King => "K",
+        };
+        write!(f, "{}", c)
+    }
+}

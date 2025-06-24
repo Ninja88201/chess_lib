@@ -1,4 +1,4 @@
-use crate::{lookup_tables, Board, MoveList, Piece, Tile};
+use crate::{lookup_tables, Board, MoveList, Piece, Tile, CastlingRights};
 
 impl Board {
     pub fn generate_legal_moves(&mut self, white: bool, moves: &mut MoveList) {
@@ -80,8 +80,8 @@ impl Board {
 
     fn try_push_pawn_move(&self, from: Tile, to: Tile, white: bool, capture: Option<Piece>, moves: &mut MoveList) {
         if to.is_promotion(white) {
-            for i in 1..5 {
-                moves.push(self.create_move(from, to, Piece::Pawn, capture, Some(Piece::from_index(i))));
+            for p in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
+                moves.push(self.create_move(from, to, Piece::Pawn, capture, Some(p)));
             }
         } else {
             moves.push(self.create_move(from, to, Piece::Pawn, capture, None));
@@ -137,7 +137,7 @@ impl Board {
         // Castling
         if white && tile == Board::E1 {
             // Short (g1)
-            if player.castling.short_castle()
+            if self.castling.contains(CastlingRights::WHITE_KINGSIDE)
                 && self.get_piece_at_tile(Board::F1).is_none()
                 && self.get_piece_at_tile(Board::G1).is_none()
                 && !self.tile_attacked(Board::F1, false)
@@ -147,12 +147,12 @@ impl Board {
                     self.create_move(tile, 
                     Board::G1, 
                     Piece::King, 
-                    self.get_piece_at_tile(Board::G1).map(|(p, _)| p),
+                    None,
                     None)
                 );
             }
             // Long (c1)
-            if player.castling.long_castle()
+            if self.castling.contains(CastlingRights::WHITE_QUEENSIDE)
                 && self.get_piece_at_tile(Board::D1).is_none()
                 && self.get_piece_at_tile(Board::C1).is_none()
                 && self.get_piece_at_tile(Board::B1).is_none()
@@ -163,7 +163,7 @@ impl Board {
                     self.create_move(tile, 
                     Board::C1, 
                     Piece::King, 
-                    self.get_piece_at_tile(Board::C1).map(|(p, _)| p),
+                    None,
                     None)
                 );
             }
@@ -171,7 +171,7 @@ impl Board {
 
         if !white && tile == Board::E8 {
             // Short (g8)
-            if player.castling.short_castle()
+            if self.castling.contains(CastlingRights::BLACK_KINGSIDE)
                 && self.get_piece_at_tile(Board::F8).is_none()
                 && self.get_piece_at_tile(Board::G8).is_none()
                 && !self.tile_attacked(Board::F8, true)
@@ -181,13 +181,13 @@ impl Board {
                     self.create_move(tile, 
                     Board::G8, 
                     Piece::King, 
-                    self.get_piece_at_tile(Board::G8).map(|(p, _)| p),
+                    None,
                     None)
                 );
 
             }
             // Long (c8)
-            if player.castling.long_castle()
+            if self.castling.contains(CastlingRights::BLACK_QUEENSIDE)
                 && self.get_piece_at_tile(Board::D8).is_none()
                 && self.get_piece_at_tile(Board::C8).is_none()
                 && self.get_piece_at_tile(Board::B8).is_none()
@@ -198,7 +198,7 @@ impl Board {
                     self.create_move(tile, 
                     Board::C8, 
                     Piece::King, 
-                    self.get_piece_at_tile(Board::C8).map(|(p, _)| p),
+                    None,
                     None)
                 );
             }

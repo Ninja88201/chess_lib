@@ -9,12 +9,14 @@ pub mod attackgen;
 
 pub mod helper;
 pub mod debug;
+pub mod fen;
 
-use crate::{Move, Player, Tile};
+use crate::{CastlingRights, Move, Player, Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Board {
     pub white: Player,
     pub black: Player,
+    pub castling: CastlingRights,
 
     pub white_turn: bool,
     pub en_passant: Option<Tile>,

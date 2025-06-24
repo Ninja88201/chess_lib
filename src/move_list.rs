@@ -1,5 +1,4 @@
 use rand::Rng;
-
 use crate::Move;
 
 #[derive(Clone)]
@@ -36,6 +35,9 @@ impl MoveList {
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.len
+    }
+    pub fn clear(&mut self) {
+        self.len = 0;
     }
     pub fn choose_random(&self) -> Option<Move> {
         if self.is_empty() {

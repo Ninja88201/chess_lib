@@ -5,6 +5,7 @@ impl Board {
         Self {
             white: Player::new_white(),
             black: Player::new_black(),
+            castling: CastlingRights::ALL,
 
             white_turn: true,
             history: Vec::new(),
@@ -17,6 +18,7 @@ impl Board {
         Self {
             white: Player::new_empty(),
             black: Player::new_empty(),
+            castling: CastlingRights::NONE,
 
             white_turn: true,
             history: Vec::new(),
@@ -81,18 +83,7 @@ impl Board {
         }
 
         board.white_turn = active_color == "w";
-        board.white.castling = match (castling_rights.contains('K'), castling_rights.contains('Q')) {
-            (true, true) => CastlingRights::Both,
-            (true, false) => CastlingRights::KingSide,
-            (false, true) => CastlingRights::QueenSide,
-            (false, false) => CastlingRights::None,
-        };
-        board.black.castling = match (castling_rights.contains('k'), castling_rights.contains('q')) {
-            (true, true) => CastlingRights::Both,
-            (true, false) => CastlingRights::KingSide,
-            (false, true) => CastlingRights::QueenSide,
-            (false, false) => CastlingRights::None,
-        };
+        board.castling = CastlingRights::from_fen(castling_rights);
         board.en_passant = if en_passant != "-" {
             let bytes = en_passant.as_bytes();
             if bytes.len() != 2 {

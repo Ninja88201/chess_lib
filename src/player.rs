@@ -5,7 +5,7 @@ pub struct Player {
     pub bb: [Bitboard; 5],
     pub king_tile: Tile,
 
-    pub castling: CastlingRights,
+    pub selected_tile: Option<Tile>,
 }
 
 impl Player {
@@ -13,7 +13,7 @@ impl Player {
         Self {
             bb: [Bitboard::EMPTY; 5],
             king_tile: Board::E1,
-            castling: CastlingRights::Both,
+            selected_tile: None,
         }
     }
     /// Create a new player with the standard white piece positions.
@@ -28,7 +28,7 @@ impl Player {
                 // Bitboard::new(0x0000_0000_0000_0010),
             ],
             king_tile: Board::E1,
-            castling: CastlingRights::Both,
+            selected_tile: None,
         }
     }
 
@@ -44,7 +44,7 @@ impl Player {
                 // Bitboard::new(0x1000_0000_0000_0000),
             ],
             king_tile: Board::E8,
-            castling: CastlingRights::Both,
+            selected_tile: None,
         }
     }
 

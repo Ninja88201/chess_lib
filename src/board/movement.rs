@@ -1,16 +1,6 @@
 use crate::{Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
 
 impl Board {
-    pub fn get_piece_at_tile(&self, tile: Tile) -> Option<(Piece, bool)> {
-        let white_piece = self.white.get_piece(tile);
-        let black_piece = self.black.get_piece(tile);
-        match (white_piece, black_piece) {
-            (None, None) => None,
-            (None, Some(p)) => Some((p, false)),
-            (Some(p), None) => Some((p, true)),
-            (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
-        }
-    }
     pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>>(
         &mut self,
         from: Tile,
@@ -119,18 +109,15 @@ impl Board {
                 opponent.remove_piece_type(p, target_tile);
 
                 if p == Piece::Rook {
-                    opponent.castling = match (mov.to, opponent.castling) {
-                        (Board::A1, CastlingRights::Both) => CastlingRights::KingSide,
-                        (Board::H1, CastlingRights::Both) => CastlingRights::QueenSide,
-                        (Board::A1, CastlingRights::QueenSide) => CastlingRights::None,
-                        (Board::H1, CastlingRights::KingSide) => CastlingRights::None,
+                    let rights = match mov.to {
+                        Board::A1 => CastlingRights::WHITE_QUEENSIDE,
+                        Board::H1 => CastlingRights::WHITE_KINGSIDE,
 
-                        (Board::A8, CastlingRights::Both) => CastlingRights::KingSide,
-                        (Board::H8, CastlingRights::Both) => CastlingRights::QueenSide,
-                        (Board::A8, CastlingRights::QueenSide) => CastlingRights::None,
-                        (Board::H8, CastlingRights::KingSide) => CastlingRights::None,
-                        _ => opponent.castling,
-                    }
+                        Board::A8 => CastlingRights::BLACK_QUEENSIDE,
+                        Board::H8 => CastlingRights::BLACK_KINGSIDE,
+                        _ => CastlingRights::NONE,
+                    };
+                    self.castling.remove(rights);
                 }
             }
         }
@@ -150,7 +137,11 @@ impl Board {
         }
 
         if mov.piece == Piece::King {
-            player.castling = CastlingRights::None;
+            let rights = match self.white_turn {
+                true => CastlingRights::WHITE_KINGSIDE | CastlingRights::WHITE_QUEENSIDE,
+                false => CastlingRights::BLACK_KINGSIDE | CastlingRights::BLACK_QUEENSIDE,
+            };
+            self.castling.remove(rights);
             match (mov.white_turn, mov.from, mov.to) {
                 (true, Board::E1, Board::G1) => {
                     player.move_piece(Board::H1, Board::F1);
@@ -167,25 +158,19 @@ impl Board {
                 _ => {}
             }
         }
-        if mov.piece == Piece::Rook && player.castling != CastlingRights::None {
-            if mov.from == Board::A1 || mov.from == Board::A8 {
-                player.castling = match player.castling {
-                    CastlingRights::None => CastlingRights::None,
-                    CastlingRights::KingSide => CastlingRights::KingSide,
-                    CastlingRights::QueenSide => CastlingRights::None,
-                    CastlingRights::Both => CastlingRights::KingSide,
-                }
-            }
-            if mov.from ==  Board::H1 || mov.from == Board::H8 {
-                player.castling = match player.castling {
-                    CastlingRights::None => CastlingRights::None,
-                    CastlingRights::KingSide => CastlingRights::None,
-                    CastlingRights::QueenSide => CastlingRights::QueenSide,
-                    CastlingRights::Both => CastlingRights::QueenSide,
-                }
-            }
+        if mov.piece == Piece::Rook {
+            let rights = match mov.from {
+                Board::A1 => CastlingRights::WHITE_QUEENSIDE,
+                Board::H1 => CastlingRights::WHITE_KINGSIDE,
+
+                Board::A8 => CastlingRights::BLACK_QUEENSIDE,
+                Board::H8 => CastlingRights::BLACK_KINGSIDE,
+                _ => CastlingRights::NONE,
+            };
+            self.castling.remove(rights);
         }
-        if mov.piece == Piece::Pawn && !mov.from.get_neighbours().get_bit(mov.to) {
+        if mov.piece == Piece::Pawn && (mov.from.get_coords().0 == mov.to.get_coords().0) && 
+        (i8::abs(mov.from.get_coords().1 as i8 - mov.to.get_coords().1 as i8) == 2) {
             self.en_passant = Some(mov.to.backward(self.white_turn).unwrap());
         }
         self.history.push(mov);
@@ -211,7 +196,7 @@ impl Board {
             if let Some(captured) = last_move.capture {
                 if let Some(passant) = last_move.en_passant {
                     if last_move.to == passant {
-                        opponent.place_piece(Piece::Pawn, passant.forward(white).unwrap());
+                        opponent.place_piece(Piece::Pawn, last_move.to.backward(last_move.white_turn).unwrap());
                     }
                     else {
                         opponent.place_piece(captured, last_move.to);
@@ -239,8 +224,7 @@ impl Board {
                     _ => {}
                 }
             }
-            self.white.castling = last_move.prev_white_castle;
-            self.black.castling = last_move.prev_black_castle;
+            self.castling = last_move.prev_castle;
             self.en_passant = last_move.en_passant;
             self.check_cached = last_move.check_cached;
 

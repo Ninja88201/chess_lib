@@ -137,7 +137,7 @@ impl Bitboard {
         }
     }
     pub fn get_bit(&self, bit: Tile) -> bool {
-        self & &bit.as_mask() != Bitboard::EMPTY
+        (self.0 >> bit.0) & 1 != 0
     }
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()

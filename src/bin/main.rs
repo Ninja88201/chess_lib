@@ -10,10 +10,11 @@ const SPRITE_SIZE: f32 = 189.0;
 async fn main() {
     // let mut board = Board::new();
     let mut board =
-        Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
-        // Board::new_from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8").unwrap();
+        // Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        Board::new_from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8").unwrap();
         // Board::new_from_fen("7N/2Pp2N1/1r6/2k1KPp1/p1p1R3/2n2PBP/8/8 w - - 0 1").unwrap();
         // Board::new_from_fen("8/8/rnbqkbnr/pp pppppp/PPPPPPPP/RNBQKBNR/8/8 w").unwrap();
+        // Board::new_from_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1").unwrap();
           
 
     let piece_atlas = load_texture("assets/PieceAtlas.png").await.unwrap();
@@ -30,6 +31,11 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::F) {
             flipped = !flipped
+        }
+        if is_key_pressed(KeyCode::Y) {
+            let tile = get_tile(mouse_position().into(), flipped);
+            // println!("{}", board.tile_attacked(tile.unwrap(), true));
+            println!("{}", board.get_piece_at_tile(tile.unwrap()).is_none());
         }
         if is_key_pressed(KeyCode::R) {
             board = Board::new();
