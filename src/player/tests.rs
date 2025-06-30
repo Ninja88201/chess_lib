@@ -8,7 +8,6 @@ fn new_empty_player() {
     for bb in player.bb.iter() {
         assert!(bb.none());
     }
-    assert!(player.selected_tile.is_none());
 }
 
 #[test]

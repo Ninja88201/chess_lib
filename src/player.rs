@@ -8,8 +8,6 @@ mod tests;
 pub struct Player {
     pub bb: [Bitboard; 6],
     pub pieces: Bitboard,
-
-    pub selected_tile: Option<Tile>,
 }
 
 impl Player {
@@ -17,7 +15,6 @@ impl Player {
         Self {
             bb: [Bitboard::EMPTY; 6],
             pieces: Bitboard::EMPTY,
-            selected_tile: None,
         }
     }
     /// Create a new player with the standard white piece positions.
@@ -32,7 +29,6 @@ impl Player {
                 Player::WHITE_KING,
             ],
             pieces: Player::WHITE_PIECES,
-            selected_tile: None,
         }
     }
 
@@ -48,7 +44,6 @@ impl Player {
                 Player::BLACK_KING,
             ],
             pieces: Player::BLACK_PIECES,
-            selected_tile: None,
         }
     }
 
@@ -101,21 +96,5 @@ impl Player {
             }
         }
         None
-    }
-
-    pub fn select_tile(&mut self, select: Tile) {
-        if let Some(s) = self.selected_tile {
-            if s == select {
-                return;
-            }
-            if self.pieces.get_bit(select) {
-                self.selected_tile = Some(select);
-            }
-        }
-        else {
-            if self.pieces.get_bit(select) {
-                self.selected_tile = Some(select);
-            }
-        }
     }
 }

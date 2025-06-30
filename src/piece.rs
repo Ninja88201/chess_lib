@@ -53,6 +53,7 @@ impl Piece {
             (Piece::Bishop, true) => '♗',
             (Piece::Knight, true) => '♘',
             (Piece::Pawn, true) => '♙',
+            
             (Piece::King, false) => '♚',
             (Piece::Queen, false) => '♛',
             (Piece::Rook, false) => '♜',

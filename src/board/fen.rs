@@ -1,9 +1,4 @@
-use crossterm::{
-    execute,
-    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
-    terminal::{Clear, ClearType},
-};
-use std::{fmt, io::{stdout, Write}};
+use std::fmt;
 
 use crate::{Board, Move, MoveList, Piece, Tile};
 
@@ -201,59 +196,6 @@ impl Board {
         };
 
         Some(self.create_move(from, to, piece, captured, promotion))
-    }
-    pub fn draw_terminal_board(&self) -> std::io::Result<()> {
-        let mut stdout = stdout();
-
-        execute!(stdout, Clear(ClearType::All))?;
-
-        writeln!(stdout, "    a  b  c  d  e  f  g  h")?;
-        writeln!(stdout, "  +------------------------+")?;
-
-        for y in (0..8).rev() {
-            write!(stdout, "{} |", y + 1)?;
-
-            for x in 0..8 {
-                let tile = Tile::new_xy(x, y).unwrap();
-                let is_light = (x + y) % 2 == 0;
-
-                let bg = if is_light {
-                    Color::Rgb { r: 240, g: 217, b: 181 }
-                } else {
-                    Color::Rgb { r: 181, g: 136, b: 99 }
-                };
-
-                let (fg, symbol) = match self.get_piece_at_tile(tile) {
-                    Some((piece, is_white)) => {
-                        let symbol = piece.to_unicode(is_white);
-                        let fg = if is_white {
-                            Color::White
-                        } else {
-                            Color::Rgb { r: 64, g: 64, b: 64 }
-                        };
-                        (fg, symbol)
-                    }
-                    None => (Color::Reset, ' '),
-                };
-
-                // Print colored square
-                execute!(
-                    stdout,
-                    SetBackgroundColor(bg),
-                    SetForegroundColor(fg),
-                    Print(format!(" {} ", symbol)),
-                    ResetColor
-                )?;
-            }
-
-            writeln!(stdout, "| {}", y + 1)?;
-        }
-
-        writeln!(stdout, "  +------------------------+")?;
-        writeln!(stdout, "    a  b  c  d  e  f  g  h")?;
-
-        stdout.flush()?;
-        Ok(())
     }
 }
 impl fmt::Display for Board {

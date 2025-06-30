@@ -1,5 +1,6 @@
+use std::ops::Index;
+
 use crate::{Move, Tile};
-use rand::Rng;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveList {
@@ -39,18 +40,18 @@ impl MoveList {
     pub fn clear(&mut self) {
         self.len = 0;
     }
-    pub fn choose_random(&self) -> Option<Move> {
-        if self.is_empty() {
-            None
-        } else {
-            let mut rng = rand::rng();
-            Some(self.moves[rng.random_range(0..self.len())])
-        }
-    }
     pub fn contains_move(&self, from: Tile, to: Tile) -> bool {
         self.moves.iter().any(|m| m.from() == from && m.to() == to)
     }
     pub fn contains(&self, mov: &Move) -> bool {
         self.moves.contains(mov)
+    }
+}
+impl Index<usize> for MoveList
+{
+    type Output = Move;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.moves[index]
     }
 }
