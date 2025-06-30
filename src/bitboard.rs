@@ -1,126 +1,32 @@
-use std::ops::*;
-
 use crate::Tile;
+use std::fmt;
+
+mod constants;
+#[cfg(test)]
+mod tests;
+mod bit_manip;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Bitboard(pub u64);
-impl BitAnd for Bitboard
-{
-    type Output = Bitboard;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 & rhs.0)
-    }
-}
-impl BitAnd for &Bitboard {
-    type Output = Bitboard;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 & rhs.0)
-    }
-}
-
-impl BitAnd<&Bitboard> for Bitboard {
-    type Output = Self;
-
-    fn bitand(self, rhs: &Self) -> Self::Output {
-        Bitboard(self.0 & rhs.0)
-    }
-}
-
-impl BitAndAssign for Bitboard {
-    fn bitand_assign(&mut self, rhs: Self) {
-        self.0 &= rhs.0;
-    }
-}
-
-impl BitOr for Bitboard {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 | rhs.0)
-    }
-}
-
-impl BitOr for &Bitboard {
-    type Output = Bitboard;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 | rhs.0)
-    }
-}
-
-impl BitOr<&Bitboard> for Bitboard {
-    type Output = Self;
-
-    fn bitor(self, rhs: &Self) -> Self::Output {
-        Bitboard(self.0 | rhs.0)
-    }
-}
-
-impl BitOrAssign for Bitboard {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0;
-    }
-}
-
-impl Not for Bitboard {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
-        Bitboard(!self.0)
-    }
-}
-
-impl Not for &Bitboard {
-    type Output = Bitboard;
-
-    fn not(self) -> Self::Output {
-        Bitboard(!self.0)
-    }
-}
-impl Shl<i32> for Bitboard {
-    type Output = Self;
-
-    fn shl(self, rhs: i32) -> Self::Output {
-        Bitboard::new(self.0 << rhs)
-    }
-}
-impl Shr<i32> for Bitboard {
-    type Output = Self;
-
-    fn shr(self, rhs: i32) -> Self::Output {
-        Bitboard::new(self.0 >> rhs)
-    }
-}
-impl From<u64> for Bitboard {
-    fn from(val: u64) -> Self {
-        Bitboard(val)
-    }
-}
-
-impl Iterator for Bitboard {
-    type Item = Tile;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 == 0 {
-            None
-        } else {
-            let s = self.0.trailing_zeros() as u8;
-            self.0 &= self.0 - 1;
-            Tile::new_index(s)
-        }
-    }
-}
+#[repr(transparent)]
+pub struct Bitboard(u64);
 
 impl Bitboard {
-    pub const EMPTY: Bitboard = Bitboard { 0: 0 };
-    pub fn new(bits: u64) -> Self {
+    pub const EMPTY: Bitboard = Bitboard(0);
+
+    #[inline(always)]
+    pub const fn new(bits: u64) -> Self {
         Self(bits)
     }
+
+    #[inline(always)]
     pub fn from_bit(bit: Tile) -> Self {
-        Self(1u64 << bit.0)
+        Self(1u64 << bit.to_u8())
     }
+    pub fn to_u64(&self) -> u64 {
+        self.0
+    }
+
+    #[inline(always)]
     pub fn to_bit(&self) -> Option<Tile> {
         if self.count_ones() == 1 {
             Tile::new_index(self.0.trailing_zeros() as u8)
@@ -128,18 +34,58 @@ impl Bitboard {
             None
         }
     }
+
+    #[inline(always)]
     pub fn set_bit(&mut self, bit: Tile, value: bool) {
-        let mask = bit.as_mask();
+        let mask = 1u64 << bit.to_u8();
         if value {
-            *self |= mask;
+            self.0 |= mask;
         } else {
-            *self &= !mask;
+            self.0 &= !mask;
         }
     }
+
+    #[inline(always)]
     pub fn get_bit(&self, bit: Tile) -> bool {
-        (self.0 >> bit.0) & 1 != 0
+        (self.0 >> bit.to_u8()) & 1 != 0
     }
+
+    #[inline(always)]
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()
+    }
+
+    #[inline(always)]
+    pub fn some(&self) -> bool {
+        self.0 != 0
+    }
+
+    #[inline(always)]
+    pub fn none(&self) -> bool {
+        self.0 == 0
+    }
+
+    #[inline(always)]
+    pub fn bits(self) -> u64 {
+        self.0
+    }
+
+    #[inline(always)]
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+}
+
+impl fmt::Display for Bitboard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let idx = rank * 8 + file;
+                let bit = (self.0 >> idx) & 1;
+                write!(f, "{} ", if bit == 1 { '1' } else { '.' })?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }

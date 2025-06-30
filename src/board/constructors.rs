@@ -1,4 +1,4 @@
-use crate::{Tile, Player, Piece, CastlingRights, Board};
+use crate::{Board, CastlingRights, Piece, Player, Tile};
 
 impl Board {
     pub fn new() -> Self {
@@ -10,7 +10,7 @@ impl Board {
             white_turn: true,
             history: Vec::new(),
             en_passant: None,
-            
+
             white_cache: None,
             black_cache: None,
         }
@@ -68,9 +68,13 @@ impl Board {
                         let rank = 7 - rank_idx as u8;
                         let square = rank * 8 + file;
                         if is_white {
-                            board.white.place_piece(piece, Tile(square));
+                            if let Some(t) = Tile::new_index(square) {
+                                board.white.place_piece(piece, t);
+                            }
                         } else {
-                            board.black.place_piece(piece, Tile(square));
+                            if let Some(t) = Tile::new_index(square) {
+                                board.black.place_piece(piece, t);
+                            }
                         }
 
                         file += 1;
@@ -98,7 +102,7 @@ impl Board {
             }
             let file_idx = file - b'a';
             let rank_idx = rank - b'1';
-            Some(Tile(rank_idx * 8 + file_idx))
+            Tile::new_xy(rank_idx, file_idx)
         } else {
             None
         };

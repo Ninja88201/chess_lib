@@ -1,9 +1,13 @@
-use crate::{Bitboard, Board, Piece, Tile};
+use crate::{Bitboard, Piece, Tile};
+
+mod constants;
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {
-    pub bb: [Bitboard; 5],
-    pub king_tile: Tile,
+    pub bb: [Bitboard; 6],
+    pub pieces: Bitboard,
 
     pub selected_tile: Option<Tile>,
 }
@@ -11,8 +15,8 @@ pub struct Player {
 impl Player {
     pub fn new_empty() -> Self {
         Self {
-            bb: [Bitboard::EMPTY; 5],
-            king_tile: Board::E1,
+            bb: [Bitboard::EMPTY; 6],
+            pieces: Bitboard::EMPTY,
             selected_tile: None,
         }
     }
@@ -20,14 +24,14 @@ impl Player {
     pub fn new_white() -> Self {
         Self {
             bb: [
-                Bitboard::new(0x0000_0000_0000_FF00),
-                Bitboard::new(0x0000_0000_0000_0042),
-                Bitboard::new(0x0000_0000_0000_0024),
-                Bitboard::new(0x0000_0000_0000_0081),
-                Bitboard::new(0x0000_0000_0000_0008),
-                // Bitboard::new(0x0000_0000_0000_0010),
+                Player::WHITE_PAWNS,
+                Player::WHITE_KNIGHTS,
+                Player::WHITE_BISHOPS,
+                Player::WHITE_ROOKS,
+                Player::WHITE_QUEEN,
+                Player::WHITE_KING,
             ],
-            king_tile: Board::E1,
+            pieces: Player::WHITE_PIECES,
             selected_tile: None,
         }
     }
@@ -36,51 +40,38 @@ impl Player {
     pub fn new_black() -> Self {
         Self {
             bb: [
-                Bitboard::new(0x00FF_0000_0000_0000),
-                Bitboard::new(0x4200_0000_0000_0000),
-                Bitboard::new(0x2400_0000_0000_0000),
-                Bitboard::new(0x8100_0000_0000_0000),
-                Bitboard::new(0x0800_0000_0000_0000),
-                // Bitboard::new(0x1000_0000_0000_0000),
+                Player::BLACK_PAWNS,
+                Player::BLACK_KNIGHTS,
+                Player::BLACK_BISHOPS,
+                Player::BLACK_ROOKS,
+                Player::BLACK_QUEEN,
+                Player::BLACK_KING,
             ],
-            king_tile: Board::E8,
+            pieces: Player::BLACK_PIECES,
             selected_tile: None,
         }
     }
-
-    pub fn pieces(&self) -> Bitboard {
-        self.bb[Piece::Pawn as usize]
-            | self.bb[Piece::Knight as usize]
-            | self.bb[Piece::Bishop as usize]
-            | self.bb[Piece::Rook as usize]
-            | self.bb[Piece::Queen as usize]
-            | self.king_tile.as_mask()
-    }
     pub fn attackers(&self) -> Bitboard {
-        self.bb[Piece::Pawn as usize]
-            | self.bb[Piece::Knight as usize]
-            | self.bb[Piece::Bishop as usize]
-            | self.bb[Piece::Rook as usize]
-            | self.bb[Piece::Queen as usize]
+        self.pieces & !self.bb[Piece::King as usize]
+    }
+    pub fn king_tile(&self) -> Tile {
+        self.bb[Piece::King as usize].to_bit().unwrap()
     }
 
     pub fn remove_piece(&mut self, tile: Tile) -> Option<Piece> {
-        if tile == self.king_tile {
-            return Some(Piece::King);
-        }
-        for i in 0..self.bb.len() {
-            if let Some(p) = self.remove_piece_type(Piece::from_index(i), tile) {
-                return Some(p);
+        for piece in Piece::ALL_PIECES {
+            if self.bb[piece as usize].get_bit(tile) {
+                self.bb[piece as usize].set_bit(tile, false);
+                self.pieces.set_bit(tile, false);
+                return Some(piece);
             }
         }
         None
     }
     pub fn remove_piece_type(&mut self, piece: Piece, tile: Tile) -> Option<Piece> {
-        if piece == Piece::King {
-            return Some(Piece::King);
-        }
         if self.bb[piece as usize].get_bit(tile) {
             self.bb[piece as usize].set_bit(tile, false);
+            self.pieces.set_bit(tile, false);
             return Some(piece);
         }
 
@@ -88,21 +79,17 @@ impl Player {
     }
 
     pub fn place_piece(&mut self, piece: Piece, tile: Tile) {
-        if piece == Piece::King {
-            self.king_tile = tile;
-            return;
-        }
         self.bb[piece as usize].set_bit(tile, true);
+        self.pieces.set_bit(tile, true);
     }
     pub fn move_piece(&mut self, from: Tile, to: Tile) {
         if let Some(p) = self.remove_piece(from) {
             self.place_piece(p, to);
         }
     }
-    pub fn get_piece(&self, tile: Tile) -> Option<Piece>
-    {
-        if tile == self.king_tile {
-            return Some(Piece::King);
+    pub fn get_piece(&self, tile: Tile) -> Option<Piece> {
+        if (self.pieces & tile.to_mask()).none() {
+            return None;
         }
         for i in 0..self.bb.len() {
             if self.bb[i].get_bit(tile) {
@@ -111,5 +98,4 @@ impl Player {
         }
         None
     }
-
 }

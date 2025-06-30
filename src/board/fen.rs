@@ -1,7 +1,6 @@
 use crate::{Board, Tile};
 
-impl Board
-{
+impl Board {
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
 

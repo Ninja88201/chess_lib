@@ -6,7 +6,7 @@ impl Board {
         from: Tile,
         to: Tile,
         promotion: F,
-        context: C
+        context: C,
     ) -> Result<(), MoveError> {
         if from == to {
             return Err(MoveError::SameTile);
@@ -31,7 +31,7 @@ impl Board {
                 }
             }
 
-            let mut capture = match self.get_piece_at_tile(to) {
+            let capture = match self.get_piece_at_tile(to) {
                 Some((p, w)) => {
                     if w == self.white_turn {
                         return Err(MoveError::FriendlyCapture);
@@ -60,12 +60,7 @@ impl Board {
                 return Err(MoveError::IllegalMove);
             }
 
-            let result = self.make_move_unchecked(mov);
-
-            if self.is_in_check(!self.white_turn) {
-                self.undo_move();
-                return Err(MoveError::PiecePinned);
-            }
+            self.make_move_unchecked(mov);
 
             // Stalemate
             let mut remaining = MoveList::new();
@@ -78,153 +73,142 @@ impl Board {
                 println!("Checkmate");
             }
 
-            return result;
+            return Ok(());
         } else {
             return Err(MoveError::NoPieceSelected);
         }
     }
-    pub fn make_move_unchecked(&mut self, mov: Move) -> Result<(), MoveError> {
-        if mov.from == mov.to {
-            return Err(MoveError::SameTile);
-        }
-        
-        let piece_moved = self.get_piece_at_tile(mov.from);
-
+    #[inline(always)]
+    pub fn make_move_unchecked(&mut self, mov: Move) {
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
             (&mut self.black, &mut self.white)
         };
 
-        if let Some((_, is_white)) = piece_moved {
-            if is_white != self.white_turn {
-                return Err(MoveError::WrongTurn);
-            }
-            if let Some(p) = mov.capture {
-                let target_tile = if mov.en_passant == Some(mov.to) {
-                    mov.to.backward(is_white).unwrap()
-                } else {
-                    mov.to
+        if let Some(p) = mov.capture() {
+            let target_tile = if mov.en_passant() == Some(mov.to()) {
+                mov.to().backward(self.white_turn).unwrap()
+            } else {
+                mov.to()
+            };
+            opponent.remove_piece_type(p, target_tile);
+
+            if p == Piece::Rook {
+                let rights = match mov.to() {
+                    Tile::A1 => CastlingRights::WHITE_QUEENSIDE,
+                    Tile::H1 => CastlingRights::WHITE_KINGSIDE,
+
+                    Tile::A8 => CastlingRights::BLACK_QUEENSIDE,
+                    Tile::H8 => CastlingRights::BLACK_KINGSIDE,
+                    _ => CastlingRights::NONE,
                 };
-                opponent.remove_piece_type(p, target_tile);
-
-                if p == Piece::Rook {
-                    let rights = match mov.to {
-                        Board::A1 => CastlingRights::WHITE_QUEENSIDE,
-                        Board::H1 => CastlingRights::WHITE_KINGSIDE,
-
-                        Board::A8 => CastlingRights::BLACK_QUEENSIDE,
-                        Board::H8 => CastlingRights::BLACK_KINGSIDE,
-                        _ => CastlingRights::NONE,
-                    };
-                    self.castling.remove(rights);
-                }
+                self.castling.remove(rights);
             }
         }
-        else {
-            return Err(MoveError::NoPieceSelected);
-        }
 
-        
-
-        player.move_piece(mov.from, mov.to);
+        player.move_piece(mov.from(), mov.to());
         self.en_passant = None;
 
-
-        if let Some(p) = mov.promoted_to {
-            player.remove_piece(mov.to);
-            player.place_piece(p, mov.to);
+        if let Some(p) = mov.promoted_to() {
+            player.remove_piece(mov.to());
+            player.place_piece(p, mov.to());
         }
 
-        if mov.piece == Piece::King {
+        if mov.piece() == Piece::King {
             let rights = match self.white_turn {
                 true => CastlingRights::WHITE_KINGSIDE | CastlingRights::WHITE_QUEENSIDE,
                 false => CastlingRights::BLACK_KINGSIDE | CastlingRights::BLACK_QUEENSIDE,
             };
             self.castling.remove(rights);
-            match (self.white_turn, mov.from, mov.to) {
-                (true, Board::E1, Board::G1) => {
-                    player.move_piece(Board::H1, Board::F1);
+            match (self.white_turn, mov.from(), mov.to()) {
+                (true, Tile::E1, Tile::G1) => {
+                    player.move_piece(Tile::H1, Tile::F1);
                 }
-                (true, Board::E1, Board::C1) => {
-                    player.move_piece(Board::A1, Board::D1);
+                (true, Tile::E1, Tile::C1) => {
+                    player.move_piece(Tile::A1, Tile::D1);
                 }
-                (false, Board::E8, Board::G8) => {
-                    player.move_piece(Board::H8, Board::F8);
+                (false, Tile::E8, Tile::G8) => {
+                    player.move_piece(Tile::H8, Tile::F8);
                 }
-                (false, Board::E8, Board::C8) => {
-                    player.move_piece(Board::A8, Board::D8);
+                (false, Tile::E8, Tile::C8) => {
+                    player.move_piece(Tile::A8, Tile::D8);
                 }
                 _ => {}
             }
         }
-        if mov.piece == Piece::Rook {
-            let rights = match mov.from {
-                Board::A1 => CastlingRights::WHITE_QUEENSIDE,
-                Board::H1 => CastlingRights::WHITE_KINGSIDE,
+        if mov.piece() == Piece::Rook {
+            let rights = match mov.from() {
+                Tile::A1 => CastlingRights::WHITE_QUEENSIDE,
+                Tile::H1 => CastlingRights::WHITE_KINGSIDE,
 
-                Board::A8 => CastlingRights::BLACK_QUEENSIDE,
-                Board::H8 => CastlingRights::BLACK_KINGSIDE,
+                Tile::A8 => CastlingRights::BLACK_QUEENSIDE,
+                Tile::H8 => CastlingRights::BLACK_KINGSIDE,
                 _ => CastlingRights::NONE,
             };
             self.castling.remove(rights);
         }
-        if mov.piece == Piece::Pawn && (mov.from.get_coords().0 == mov.to.get_coords().0) && 
-        (i8::abs(mov.from.get_coords().1 as i8 - mov.to.get_coords().1 as i8) == 2) {
-            self.en_passant = Some(mov.to.backward(self.white_turn).unwrap());
+        if mov.piece() == Piece::Pawn
+            && (mov.from().get_coords().0 == mov.to().get_coords().0)
+            && (i8::abs(mov.from().get_coords().1 as i8 - mov.to().get_coords().1 as i8) == 2)
+        {
+            self.en_passant = Some(mov.to().backward(self.white_turn).unwrap());
         }
         self.history.push(mov);
 
         self.white_turn = !self.white_turn;
         self.white_cache = None;
         self.black_cache = None;
-
-        Ok(())
     }
+    #[inline(always)]
     pub fn undo_move(&mut self) {
         if let Some(last_move) = self.history.pop() {
             let (player, opponent) = match !self.white_turn {
                 true => (&mut self.white, &mut self.black),
                 false => (&mut self.black, &mut self.white),
             };
-            if let Some(_) = last_move.promoted_to {
-                player.remove_piece(last_move.to);
-                player.place_piece(Piece::Pawn, last_move.to);
+            if last_move.promoted_to().is_some() {
+                player.remove_piece(last_move.to());
+                player.place_piece(Piece::Pawn, last_move.to());
             }
-            player.move_piece(last_move.to, last_move.from);
-            
-            if let Some(captured) = last_move.capture {
-                if last_move.piece == Piece::Pawn && last_move.en_passant == Some(last_move.to) {
-                    opponent.place_piece(Piece::Pawn, last_move.to.backward(!self.white_turn).unwrap());
+            player.move_piece(last_move.to(), last_move.from());
+
+            if let Some(captured) = last_move.capture() {
+                if last_move.piece() == Piece::Pawn
+                    && last_move.en_passant() == Some(last_move.to())
+                {
+                    opponent.place_piece(
+                        Piece::Pawn,
+                        last_move.to().backward(!self.white_turn).unwrap(),
+                    );
                 } else {
-                    opponent.place_piece(captured, last_move.to);
+                    opponent.place_piece(captured, last_move.to());
                 }
             }
 
-            if last_move.piece == Piece::King {
-                match (!self.white_turn, last_move.from, last_move.to) {
-                    (true, Board::E1, Board::G1) => {
-                        player.move_piece(Board::F1, Board::H1);
+            if last_move.piece() == Piece::King {
+                match (!self.white_turn, last_move.from(), last_move.to()) {
+                    (true, Tile::E1, Tile::G1) => {
+                        player.move_piece(Tile::F1, Tile::H1);
                     }
-                    (true, Board::E1, Board::C1) => {
-                        player.move_piece(Board::D1, Board::A1);
+                    (true, Tile::E1, Tile::C1) => {
+                        player.move_piece(Tile::D1, Tile::A1);
                     }
-                    (false, Board::E8, Board::G8) => {
-                        player.move_piece(Board::F8, Board::H8);
+                    (false, Tile::E8, Tile::G8) => {
+                        player.move_piece(Tile::F8, Tile::H8);
                     }
-                    (false, Board::E8, Board::C8) => {
-                        player.move_piece(Board::D8, Board::A8);
+                    (false, Tile::E8, Tile::C8) => {
+                        player.move_piece(Tile::D8, Tile::A8);
                     }
                     _ => {}
                 }
             }
-            self.castling = last_move.prev_castle;
-            self.en_passant = last_move.en_passant;
-            self.white_cache = last_move.white_cache;
-            self.black_cache = last_move.black_cache;
+            self.castling = last_move.prev_castle();
+            self.en_passant = last_move.en_passant();
+            self.white_cache = last_move.white_cache();
+            self.black_cache = last_move.black_cache();
 
             self.white_turn = !self.white_turn;
-
         }
     }
 }

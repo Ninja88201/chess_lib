@@ -1,7 +1,7 @@
+use crate::{Move, Tile};
 use rand::Rng;
-use crate::Move;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveList {
     moves: [Move; 256],
     len: usize,
@@ -46,5 +46,8 @@ impl MoveList {
             let mut rng = rand::rng();
             Some(self.moves[rng.random_range(0..self.len())])
         }
+    }
+    pub fn contains_move(&self, from: Tile, to: Tile) -> bool {
+        self.moves.iter().any(|m| m.from() == from && m.to() == to)
     }
 }

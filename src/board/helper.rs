@@ -1,7 +1,6 @@
 use crate::{Bitboard, Board, Move, Piece, Player, Tile};
 
-impl Board
-{
+impl Board {
     pub fn create_move(
         &self,
         from: Tile,
@@ -11,7 +10,6 @@ impl Board
         promotion: Option<Piece>,
     ) -> Move {
         Move::new(
-            self.white_turn,
             from,
             to,
             piece,
@@ -25,7 +23,11 @@ impl Board
     }
     #[inline(always)]
     pub fn occupied(&self) -> Bitboard {
-        self.white.pieces() | self.black.pieces()
+        self.white.pieces | self.black.pieces
+    }
+    #[inline(always)]
+    pub fn occupied_kingless(&self) -> Bitboard {
+        self.white.attackers() | self.black.attackers()
     }
     #[inline(always)]
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {
@@ -51,5 +53,4 @@ impl Board
             (Some(_), Some(_)) => panic!("Two pieces are overlapping"),
         }
     }
-
 }

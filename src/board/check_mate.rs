@@ -1,73 +1,74 @@
-use crate::{Bitboard, Board, MoveList, Tile};
+use crate::{Board, MoveList, Piece, Tile};
 
 impl Board {
-
+    #[inline]
     pub fn tile_attacked(&self, tile: Tile, by_white: bool) -> bool {
-        let (opponent, _) = self.get_players(by_white);
-        opponent.pieces()
-            .find(|&from| {
-                opponent.get_piece(from)
-                    .map_or(false, |piece| self.generate_attacks_from_piece(from, piece, by_white).get_bit(tile))
-            })
-            .is_some()
+        let (attacker, _) = self.get_players(by_white);
+        let occ = self.occupied();
+        let straight_mask = tile.rook_attacks(occ);
+        if (attacker.bb[Piece::Rook as usize] & straight_mask).some()
+            || (attacker.bb[Piece::Queen as usize] & straight_mask).some()
+        {
+            return true;
+        }
+
+        let diag_mask = tile.bishop_attacks(occ);
+        if (attacker.bb[Piece::Bishop as usize] & diag_mask).some()
+            || (attacker.bb[Piece::Queen as usize] & diag_mask).some()
+        {
+            return true;
+        }
+
+        let knight_mask = tile.knight_attacks();
+        if (attacker.bb[Piece::Knight as usize] & knight_mask).some() {
+            return true;
+        }
+
+        let pawn_mask = tile.pawn_attacks(!by_white);
+        if (attacker.bb[Piece::Pawn as usize] & pawn_mask).some() {
+            return true;
+        }
+
+        // Old code ( 8s slower! )
+        // attacker.pieces().any(|from| {
+        //     attacker.get_piece(from).map_or(false, |piece| {
+        //         self.generate_attacks_from_piece(from, piece, by_white).get_bit(tile)
+        //     })
+        // })
+        false
     }
 
     pub fn is_in_check(&mut self, white: bool) -> bool {
-        match white {
-            true => {
-                if let Some(c) = self.white_cache {
-                    return c;
-                }
-            },
-            false => {
-                if let Some(c) = self.black_cache {
-                    return c;
-                }
-            },
-        }
-        let (player, opponent) = if white {
-            (&self.white, &self.black)
+        if white {
+            if let Some(cached) = self.white_cache {
+                return cached;
+            }
         } else {
-            (&self.black, &self.white)
-        };
-        let mut attacks = Bitboard::EMPTY;
-        for from in opponent.attackers() {
-            if let Some(piece) = opponent.get_piece(from) {
-                attacks |= self.generate_attacks_from_piece(from, piece, !white)
+            if let Some(cached) = self.black_cache {
+                return cached;
             }
         }
-        let check = attacks.get_bit(player.king_tile);
-        match white {
-            true => self.white_cache = Some(check),
-            false => self.black_cache = Some(check),
+
+        let (player, _) = self.get_players(white);
+        let is_checked =
+            self.tile_attacked(player.bb[Piece::King as usize].to_bit().unwrap(), !white);
+
+        if white {
+            self.white_cache = Some(is_checked);
+        } else {
+            self.black_cache = Some(is_checked);
         }
-        return check;
+
+        is_checked
     }
+
     pub fn is_checkmate(&mut self, white: bool) -> bool {
         if !self.is_in_check(white) {
             return false;
         }
+
         let mut moves = MoveList::new();
         self.generate_legal_moves(white, &mut moves);
         moves.is_empty()
-        
-
-        // let (player, _) = self.get_players(white);
-
-        // for from in player.pieces() {
-        //     let mut moves = MoveList::new();
-        //     self.generate_moves_from(from, &mut moves);
-        //     for m in moves.iter() {
-        //         if self.make_move_unchecked(*m).is_ok() {
-        //             let in_check = self.is_in_check(white);
-        //             self.undo_move();
-        //             if !in_check {
-        //                 return false;
-        //             }
-        //         }
-        //     }
-        // }
-
-        // true
     }
 }

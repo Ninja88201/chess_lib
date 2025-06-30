@@ -1,15 +1,17 @@
-pub mod constants;
 pub mod constructors;
 
+pub mod check_mate;
 pub mod movegen;
 pub mod movement;
-pub mod check_mate;
 
 pub mod attackgen;
 
-pub mod helper;
 pub mod debug;
 pub mod fen;
+pub mod helper;
+
+#[cfg(test)]
+mod tests;
 
 use crate::{CastlingRights, Move, Player, Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]

@@ -1,76 +1,74 @@
 use std::fmt::Display;
 
-use crate::Bitboard;
+mod constants;
+#[cfg(test)]
+mod tests;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Tile(pub u8);
+use crate::{
+    BETWEEN, BISHOP_ATTACKS, BISHOP_MAGICS, Bitboard, KING_ATTACKS, KNIGHT_ATTACKS,
+    ROOK_ATTACKS, ROOK_MAGICS, magics::magic_index,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Tile(u8);
 
 impl Tile {
-    pub fn new_index(index: u8) -> Option<Tile> {
+    // Constructors
+    pub const fn new_index(index: u8) -> Option<Tile> {
         if index >= 64 {
             return None;
         }
         Some(Tile(index))
     }
-    pub fn new_xy(x: u8, y:u8) -> Option<Tile> {
-        if x >= 8 || y >= 8{ 
+    pub const fn new_xy(x: u8, y: u8) -> Option<Tile> {
+        if x >= 8 || y >= 8 {
             return None;
         }
         Some(Tile((y * 8) + x))
     }
-    pub fn get_neighbours(&self) -> Bitboard {
-        let (x, y) = self.get_coords();
-        let mut result = Bitboard::EMPTY;
-
-        const DIRS: [(i8, i8); 8] = [
-            (0, 1), (1, 1), (1, 0), (1, -1),
-            (0, -1), (-1, -1), (-1, 0), (-1, 1),
-        ];
-
-        for (dx, dy) in DIRS {
-            let nx = x as i8 + dx;
-            let ny = y as i8 + dy;
-            if (0..8).contains(&nx) && (0..8).contains(&ny) {
-                if let Some(t) = Tile::new_xy(nx as u8, ny as u8) {
-                    result.set_bit(t, true);
-                }
-            }
-        }
-
-        result
+    pub const fn new_unchecked(index: u8) -> Tile {
+        Tile(index)
     }
-    #[inline(always)]
-    pub fn as_mask(&self) -> Bitboard {
+
+    // Conversions
+    pub fn to_u8(&self) -> u8 {
+        self.0
+    }
+    pub fn to_usize(&self) -> usize {
+        self.0 as usize
+    }
+    pub fn to_mask(&self) -> Bitboard {
         Bitboard::new(1u64 << self.0)
     }
+
+    // Getting others
+    pub fn get_coords(&self) -> (u8, u8) {
+        (self.0 & 7, self.0 >> 3)
+    }
+    pub fn get_neighbours(&self) -> Bitboard {
+        Bitboard::new(KING_ATTACKS[self.to_usize()])
+    }
+
     pub fn offset(&self, dx: i8, dy: i8) -> Option<Self> {
         let (x, y) = self.get_coords();
         let nx = x as i8 + dx;
         let ny = y as i8 + dy;
-        if (0..8).contains(&nx) && (0..8).contains(&ny) {
-            Tile::new_xy(nx as u8, ny as u8)
-        } else {
-            None
-        }
-    }
-    pub fn get_coords(&self) -> (u8, u8) {
-        (self.0 % 8, self.0 / 8)
+        Tile::new_xy(nx as u8, ny as u8)
     }
     pub fn forward(&self, white: bool) -> Option<Self> {
         self.offset(0, if white { 1 } else { -1 })
     }
-
     pub fn backward(&self, white: bool) -> Option<Self> {
         self.offset(0, if white { -1 } else { 1 })
     }
-
     pub fn left(&self, white: bool) -> Option<Self> {
         self.offset(if white { -1 } else { 1 }, 0)
     }
-
     pub fn right(&self, white: bool) -> Option<Self> {
         self.offset(if white { 1 } else { -1 }, 0)
     }
+
+    // Board rules
     pub fn is_promotion(&self, white: bool) -> bool {
         let y = self.get_coords().1;
         match white {
@@ -84,6 +82,43 @@ impl Tile {
             true => y == 1,
             false => y == 6,
         }
+    }
+
+    // Attack Generation
+    pub fn rook_attacks(&self, occ: Bitboard) -> Bitboard {
+        let entry = &ROOK_MAGICS[self.to_usize()];
+        let idx = magic_index(entry, occ);
+        Bitboard::new(ROOK_ATTACKS[idx])
+    }
+
+    pub fn bishop_attacks(&self, occ: Bitboard) -> Bitboard {
+        let entry = &BISHOP_MAGICS[self.to_usize()];
+        let idx = magic_index(entry, occ);
+        Bitboard::new(BISHOP_ATTACKS[idx])
+    }
+
+    pub fn queen_attacks(&self, occ: Bitboard) -> Bitboard {
+        self.rook_attacks(occ) | self.bishop_attacks(occ)
+    }
+
+    pub fn knight_attacks(&self) -> Bitboard {
+        Bitboard::new(KNIGHT_ATTACKS[self.to_usize()])
+    }
+
+    pub fn king_attacks(&self) -> Bitboard {
+        Bitboard::new(KING_ATTACKS[self.to_usize()])
+    }
+
+    pub fn pawn_attacks(&self, white: bool) -> Bitboard {
+        let mask = self.to_mask();
+        match white {
+            true => ((mask << 7) & !Bitboard::FILE_H) | ((mask << 9) & !Bitboard::FILE_A),
+            false => ((mask >> 7) & !Bitboard::FILE_A) | ((mask >> 9) & !Bitboard::FILE_H),
+        }
+    }
+    
+    pub fn get_between(&self, to: Tile) -> Bitboard {
+        Bitboard::new(BETWEEN[self.to_usize()][to.to_usize()])
     }
 }
 impl Display for Tile {

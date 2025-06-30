@@ -1,4 +1,5 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Piece {
     Pawn = 0,
     Knight = 1,
@@ -8,8 +9,21 @@ pub enum Piece {
     King = 5,
 }
 impl Piece {
-    pub fn from_index(index: usize) -> Self
-    {
+    pub const ALL_PIECES: [Piece; 6] = [
+        Piece::Pawn,
+        Piece::Knight,
+        Piece::Bishop,
+        Piece::Rook,
+        Piece::Queen,
+        Piece::King,
+    ];
+    pub const PROMOTION_PIECES: [Piece; 4] = [
+        Piece::Queen,
+        Piece::Rook,
+        Piece::Bishop,
+        Piece::Knight
+    ];
+    pub fn from_index(index: usize) -> Self {
         match index {
             0 => Piece::Pawn,
             1 => Piece::Knight,
@@ -43,5 +57,11 @@ impl std::fmt::Display for Piece {
             Piece::King => "K",
         };
         write!(f, "{}", c)
+    }
+}
+
+impl From<Piece> for usize {
+    fn from(value: Piece) -> Self {
+        value as usize
     }
 }
