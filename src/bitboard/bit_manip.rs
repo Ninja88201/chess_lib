@@ -117,3 +117,23 @@ impl Iterator for Bitboard {
         }
     }
 }
+impl Bitboard {
+    pub fn iter(&self) -> BitIter {
+        BitIter(self.0)
+    }
+}
+
+pub struct BitIter(u64);
+
+impl Iterator for BitIter {
+    type Item = Tile;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 == 0 {
+            return None;
+        }
+        let lsb = self.0.trailing_zeros();
+        self.0 &= self.0 - 1;
+        Tile::new_index(lsb as u8)
+    }
+}

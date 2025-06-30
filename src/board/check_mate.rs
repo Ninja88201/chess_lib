@@ -29,12 +29,6 @@ impl Board {
             return true;
         }
 
-        // Old code ( 8s slower! )
-        // attacker.pieces().any(|from| {
-        //     attacker.get_piece(from).map_or(false, |piece| {
-        //         self.generate_attacks_from_piece(from, piece, by_white).get_bit(tile)
-        //     })
-        // })
         false
     }
 
@@ -67,6 +61,14 @@ impl Board {
             return false;
         }
 
+        let mut moves = MoveList::new();
+        self.generate_legal_moves(white, &mut moves);
+        moves.is_empty()
+    }
+    pub fn is_stalemate(&mut self, white: bool) -> bool {
+        if self.is_in_check(white) {
+            return false;
+        }
         let mut moves = MoveList::new();
         self.generate_legal_moves(white, &mut moves);
         moves.is_empty()

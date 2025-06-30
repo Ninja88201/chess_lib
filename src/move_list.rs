@@ -50,4 +50,7 @@ impl MoveList {
     pub fn contains_move(&self, from: Tile, to: Tile) -> bool {
         self.moves.iter().any(|m| m.from() == from && m.to() == to)
     }
+    pub fn contains(&self, mov: &Move) -> bool {
+        self.moves.contains(mov)
+    }
 }

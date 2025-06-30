@@ -26,6 +26,26 @@ impl Tile {
         }
         Some(Tile((y * 8) + x))
     }
+    pub fn from_str(s: &str) -> Option<Tile> {
+        let mut chars = s.chars();
+        let file = chars.next()?;
+        let rank = chars.next()?;
+        if chars.next().is_some() {
+            return None; // too long
+        }
+        Tile::new_chars(file, rank)
+    }
+    pub const fn new_chars(file_char: char, rank_char: char) -> Option<Tile> {
+        let file = match file_char {
+            'a'..='h' => (file_char as u8) - b'a',
+            _ => return None,
+        };
+        let rank = match rank_char {
+            '1'..='8' => (rank_char as u8) - b'1',
+            _ => return None,
+        };
+        Some(Tile::new_unchecked((rank << 3) | file))
+    }
     pub const fn new_unchecked(index: u8) -> Tile {
         Tile(index)
     }

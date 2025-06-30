@@ -11,8 +11,9 @@ impl Board {
 
         self.generate_king_moves(player.king_tile(), white, moves);
 
+        // Double Check ( Only king moves )
         if checkers_count > 1 {
-            return; // Double check — only king moves allowed
+            return; 
         }
 
         let mut targets: Option<Bitboard> = None;
@@ -71,10 +72,8 @@ impl Board {
             return;
         }
 
-        // Check if this piece is pinned
         let pinned = self.get_pinned_pieces(white);
 
-        // Determine targets due to a single check
         let check_targets = if checkers_count == 1 {
             if let Some(checker_pos) = checkers.to_bit() {
                 let checker_piece = self.get_piece_at_tile(checker_pos).unwrap();
@@ -104,6 +103,21 @@ impl Board {
             Piece::Rook => self.generate_sliding_moves(tile, white, true, false, mask, moves),
             Piece::Queen => self.generate_sliding_moves(tile, white, true, true, mask, moves),
             Piece::King => self.generate_king_moves(tile, white, moves),
+        }
+    }
+    pub fn generate_psuedo_moves_from(&self, tile: Tile, moves: &mut MoveList) {
+        match self.get_piece_at_tile(tile) {
+            Some((p, _)) => {
+                match p {
+                    Piece::Pawn => self.generate_pawn_moves(tile, self.white_turn, None, moves),
+                    Piece::Knight => self.generate_knight_moves(tile, self.white_turn, None, moves),
+                    Piece::Bishop => self.generate_sliding_moves(tile, self.white_turn, false, true, None, moves),
+                    Piece::Rook => self.generate_sliding_moves(tile, self.white_turn, true, false, None, moves),
+                    Piece::Queen => self.generate_sliding_moves(tile, self.white_turn, true, true, None, moves),
+                    Piece::King => self.generate_king_moves(tile, self.white_turn, moves),
+                }
+            },
+            None => return,
         }
     }
 
@@ -160,7 +174,8 @@ impl Board {
                     if maybe_pinned.is_none() {
                         maybe_pinned = Some(current);
                     } else {
-                        break; // second friendly piece: no pin
+                        // Second friendly piece => No pin
+                        break;
                     }
                 } else {
                     if let Some(pinned_tile) = maybe_pinned {
@@ -270,12 +285,6 @@ impl Board {
             }
         }
     }
-    /// Returns true if en passant would expose a discovered check on the king.
-    /// `tile`: the capturing pawn tile
-    /// `to`: the en passant destination tile (behind the captured pawn)
-    /// `king_tile`: your king's tile
-    /// `occupied`: all occupied tiles
-    /// `opponent_sliders`: enemy rooks and queens
     pub fn is_illegal_en_passant_discovery(
         capturing_pawn_tile: Tile,
         ep_target_tile: Tile,
@@ -287,12 +296,10 @@ impl Board {
         let (_, pawn_rank) = capturing_pawn_tile.get_coords();
         let (_, ep_rank) = ep_target_tile.get_coords();
 
-        // Check if king is on same rank as the capturing pawn (en passant only matters horizontally)
         if king_rank != pawn_rank {
             return false;
         }
 
-        // Determine the square of the captured pawn (behind en passant square)
         let captured_pawn_tile = if ep_rank > pawn_rank {
             ep_target_tile.offset(0, -1)
         } else {
@@ -303,7 +310,6 @@ impl Board {
             return false;
         };
 
-        // Create a new occupancy bitboard with the capturing and captured pawns removed
         let new_occupied = {
             let mut new_occ = occupied;
             new_occ.set_bit(capturing_pawn_tile, false);
@@ -311,16 +317,15 @@ impl Board {
             new_occ
         };
 
-        // Now scan along the rank for a rook or queen that attacks the king
         for dx in [-1, 1] {
             let mut x = king_file as i8 + dx;
             while (0..8).contains(&x) {
                 let tile = Tile::new_xy(x as u8, king_rank).unwrap();
                 if new_occupied.get_bit(tile) {
                     if opponent_sliders.get_bit(tile) {
-                        return true; // Discovered attack after EP
+                        return true; 
                     } else {
-                        break; // Blocked
+                        break;
                     }
                 }
                 x += dx;
@@ -420,7 +425,6 @@ impl Board {
             self.black.pieces
         };
         let attack_mask = self.generate_king_danger(!white);
-        // let attack_mask = self.generate_attacks(!white);
 
         attacks &= !friendly_mask & !attack_mask;
 
@@ -435,22 +439,14 @@ impl Board {
         }
 
         if attack_mask.get_bit(tile) {
-            return; // Can't castle out of, through, or into check
+            return; 
         }
 
         let castling_rights = self.castling;
         let occupied = self.occupied();
 
-        // macro_rules! castle_check {
-        //     ($cond:expr, $mask:expr, $target:expr) => {
-        //         if $cond && (occupied & $mask).none() && (attack_mask & $mask).none() {
-        //             moves.push(self.create_move(tile, $target, Piece::King, None, None));
-        //         }
-        //     };
-        // }
 
         if white {
-            // Kingside: check F1 and G1 are empty and not attacked
             if castling_rights.contains(CastlingRights::WHITE_KINGSIDE)
                 && (occupied & (Tile::F1.to_mask() | Tile::G1.to_mask())).none()
                 && (attack_mask & (Tile::F1.to_mask() | Tile::G1.to_mask())).none()
@@ -458,7 +454,6 @@ impl Board {
                 moves.push(self.create_move(tile, Tile::G1, Piece::King, None, None));
             }
 
-            // Queenside: D1, C1 must be empty and not attacked, B1 must not have *any* piece (including friendly)
             if castling_rights.contains(CastlingRights::WHITE_QUEENSIDE)
                 && (occupied & (Tile::D1.to_mask() | Tile::C1.to_mask() | Tile::B1.to_mask()))
                     .none()
@@ -467,7 +462,6 @@ impl Board {
                 moves.push(self.create_move(tile, Tile::C1, Piece::King, None, None));
             }
         } else {
-            // Kingside
             if castling_rights.contains(CastlingRights::BLACK_KINGSIDE)
                 && (occupied & (Tile::F8.to_mask() | Tile::G8.to_mask())).none()
                 && (attack_mask & (Tile::F8.to_mask() | Tile::G8.to_mask())).none()
@@ -475,7 +469,6 @@ impl Board {
                 moves.push(self.create_move(tile, Tile::G8, Piece::King, None, None));
             }
 
-            // Queenside
             if castling_rights.contains(CastlingRights::BLACK_QUEENSIDE)
                 && (occupied & (Tile::D8.to_mask() | Tile::C8.to_mask() | Tile::B8.to_mask()))
                     .none()

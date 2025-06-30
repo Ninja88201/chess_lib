@@ -51,13 +51,9 @@ impl Player {
             selected_tile: None,
         }
     }
-    pub fn attackers(&self) -> Bitboard {
-        self.pieces & !self.bb[Piece::King as usize]
-    }
-    pub fn king_tile(&self) -> Tile {
-        self.bb[Piece::King as usize].to_bit().unwrap()
-    }
 
+    
+    // Modifications
     pub fn remove_piece(&mut self, tile: Tile) -> Option<Piece> {
         for piece in Piece::ALL_PIECES {
             if self.bb[piece as usize].get_bit(tile) {
@@ -74,10 +70,10 @@ impl Player {
             self.pieces.set_bit(tile, false);
             return Some(piece);
         }
-
+        
         None
     }
-
+    
     pub fn place_piece(&mut self, piece: Piece, tile: Tile) {
         self.bb[piece as usize].set_bit(tile, true);
         self.pieces.set_bit(tile, true);
@@ -86,6 +82,14 @@ impl Player {
         if let Some(p) = self.remove_piece(from) {
             self.place_piece(p, to);
         }
+    }
+    
+    // Accessors
+    pub fn attackers(&self) -> Bitboard {
+        self.pieces & !self.bb[Piece::King as usize]
+    }
+    pub fn king_tile(&self) -> Tile {
+        self.bb[Piece::King as usize].to_bit().unwrap()
     }
     pub fn get_piece(&self, tile: Tile) -> Option<Piece> {
         if (self.pieces & tile.to_mask()).none() {
@@ -97,5 +101,21 @@ impl Player {
             }
         }
         None
+    }
+
+    pub fn select_tile(&mut self, select: Tile) {
+        if let Some(s) = self.selected_tile {
+            if s == select {
+                return;
+            }
+            if self.pieces.get_bit(select) {
+                self.selected_tile = Some(select);
+            }
+        }
+        else {
+            if self.pieces.get_bit(select) {
+                self.selected_tile = Some(select);
+            }
+        }
     }
 }

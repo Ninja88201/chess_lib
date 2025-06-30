@@ -8,13 +8,6 @@ mod tests;
 pub struct CastlingRights(u8);
 
 impl CastlingRights {
-    pub const NONE: CastlingRights = CastlingRights(0b0000);
-    pub const WHITE_KINGSIDE: CastlingRights = CastlingRights(0b0001);
-    pub const WHITE_QUEENSIDE: CastlingRights = CastlingRights(0b0010);
-    pub const BLACK_KINGSIDE: CastlingRights = CastlingRights(0b0100);
-    pub const BLACK_QUEENSIDE: CastlingRights = CastlingRights(0b1000);
-    pub const ALL: CastlingRights = CastlingRights(0b1111);
-
     // Constructors
     pub const fn new(rights: u8) -> Self {
         CastlingRights(rights)

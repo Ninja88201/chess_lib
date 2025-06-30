@@ -40,6 +40,22 @@ async fn main() {
                 Err(e) => println!("{}", e),
             }
         }
+        if is_key_pressed(KeyCode::I) {
+            println!("Input move: \n");
+            let mut buffer = String::new();
+            let _ = stdin().read_line(&mut buffer);
+            let mov = board.move_from_algebraic(&buffer);
+            match mov {
+                Some(m) => {
+                    let mut moves = MoveList::new();
+                    board.generate_legal_moves(board.white_turn, &mut moves);
+                    if moves.contains(&m) {
+                        board.make_move_unchecked(m)
+                    }
+                },
+                None => println!("Not a move"),
+            }
+        }
         if is_key_pressed(KeyCode::P) {
             println!("{}", board.to_fen());
         }

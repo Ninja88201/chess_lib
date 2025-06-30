@@ -45,6 +45,22 @@ impl Piece {
         };
         if white { c.to_ascii_uppercase() } else { c }
     }
+    pub fn to_unicode(&self, is_white: bool) -> char {
+        match (self, is_white) {
+            (Piece::King, true) => '♔',
+            (Piece::Queen, true) => '♕',
+            (Piece::Rook, true) => '♖',
+            (Piece::Bishop, true) => '♗',
+            (Piece::Knight, true) => '♘',
+            (Piece::Pawn, true) => '♙',
+            (Piece::King, false) => '♚',
+            (Piece::Queen, false) => '♛',
+            (Piece::Rook, false) => '♜',
+            (Piece::Bishop, false) => '♝',
+            (Piece::Knight, false) => '♞',
+            (Piece::Pawn, false) => '♟',
+        }
+    }
 }
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

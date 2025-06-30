@@ -54,8 +54,8 @@ fn king_attacks() {
 fn rook_attacks_with_blocker() {
     let mut board = Board::new_empty();
     board.white.place_piece(Piece::Rook, Tile::D4);
-    board.white.place_piece(Piece::Pawn, Tile::D6); // block vertical
-    board.black.place_piece(Piece::Pawn, Tile::F4); // enemy piece
+    board.white.place_piece(Piece::Pawn, Tile::D6);
+    board.black.place_piece(Piece::Pawn, Tile::F4);
 
     let attacks = board.generate_attacks_from(Tile::D4);
     let occ = board.occupied();
