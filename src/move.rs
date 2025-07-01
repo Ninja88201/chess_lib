@@ -118,7 +118,7 @@ impl fmt::Display for Move {
         let to = self.to();
         let capture = self.capture();
         let promo = self.promoted_to();
-        let enp = self.en_passant();
+        // let enp = self.en_passant();
 
         if piece == Piece::King {
             if (from == Tile::E1 && to == Tile::G1) || (from == Tile::E8 && to == Tile::G8) {
@@ -150,9 +150,9 @@ impl fmt::Display for Move {
             s.push_str(&p.to_string());
         }
 
-        if enp.is_some() {
-            s.push_str(" e.p.");
-        }
+        // if enp.is_some() {
+        //     s.push_str(" e.p.");
+        // }
 
         write!(f, "{s}")
     }

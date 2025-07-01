@@ -1,36 +1,37 @@
 use crate::{Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
 
 impl Board {
-    pub async fn try_move_piece<C, F: AsyncFn(Tile, C) -> Option<Piece>>(
+    pub fn try_move_piece(
         &mut self,
         from: Tile,
         to: Tile,
-        promotion: F,
-        context: C,
-    ) -> Result<(), MoveError> {
+        promotion: Option<Piece>
+    ) -> Result<Option<Tile>, MoveError> {
+        if let Some(p) = promotion {
+            let mov = self.create_move(
+                from, 
+                to, 
+                self.get_piece_at_tile(from).unwrap().0, 
+                self.get_piece_at_tile(to).map(|(p, _)| p), 
+                Some(p)
+            );
+            self.make_move_unchecked(mov);
+            return Ok(None)
+        }
         if from == to {
             return Err(MoveError::SameTile);
         }
-
+        
         if self.is_checkmate(self.white_turn) {
             return Err(MoveError::Checkmate);
         }
-
+        
         let result = self.get_piece_at_tile(from);
         if let Some((p, w)) = result {
             if w != self.white_turn {
                 return Err(MoveError::WrongTurn);
             }
-
-            let mut promote = None;
-            if to.is_promotion(w) && p == Piece::Pawn && from.get_neighbours().get_bit(to) {
-                let promotion = promotion(to, context);
-                match promotion.await {
-                    Some(p) => promote = Some(p),
-                    None => return Err(MoveError::Cancelled),
-                }
-            }
-
+            
             let capture = match self.get_piece_at_tile(to) {
                 Some((p, w)) => {
                     if w == self.white_turn {
@@ -51,6 +52,10 @@ impl Board {
                 }
             };
 
+            let mut promote = promotion;
+            if p == Piece::Pawn && to.is_promotion(self.white_turn) && promotion.is_none() {
+                promote = Some(Piece::Queen);
+            }
             let mov = self.create_move(from, to, p, capture, promote);
 
             let mut legal = MoveList::new();
@@ -60,6 +65,9 @@ impl Board {
                 return Err(MoveError::IllegalMove);
             }
 
+            if promote == Some(Piece::Queen) && promotion.is_none() {
+                return Ok(Some(to))
+            }
             self.make_move_unchecked(mov);
 
             // Stalemate
@@ -73,7 +81,7 @@ impl Board {
                 println!("Checkmate");
             }
 
-            return Ok(());
+            return Ok(None);
         } else {
             return Err(MoveError::NoPieceSelected);
         }
@@ -157,8 +165,8 @@ impl Board {
         self.history.push(mov);
 
         self.white_turn = !self.white_turn;
-        self.white_cache = None;
-        self.black_cache = None;
+        self.white_cache.set(None);
+        self.black_cache.set(None);
     }
     #[inline(always)]
     pub fn undo_move(&mut self) {
@@ -205,8 +213,8 @@ impl Board {
             }
             self.castling = last_move.prev_castle();
             self.en_passant = last_move.en_passant();
-            self.white_cache = last_move.white_cache();
-            self.black_cache = last_move.black_cache();
+            self.white_cache.set(last_move.white_cache());
+            self.black_cache.set(last_move.black_cache());
 
             self.white_turn = !self.white_turn;
         }

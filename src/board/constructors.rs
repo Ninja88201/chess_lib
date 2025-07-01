@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::{Board, CastlingRights, Piece, Player, Tile};
 
 impl Board {
@@ -11,8 +13,8 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
 
-            white_cache: None,
-            black_cache: None,
+            white_cache: Cell::new(None),
+            black_cache: Cell::new(None),
         }
     }
     pub fn new_empty() -> Self {
@@ -25,8 +27,8 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
 
-            white_cache: None,
-            black_cache: None,
+            white_cache: Cell::new(None),
+            black_cache: Cell::new(None),
         }
     }
     pub fn new_from_fen(fen: &str) -> Result<Self, String> {

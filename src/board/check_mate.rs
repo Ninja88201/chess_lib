@@ -32,25 +32,25 @@ impl Board {
         false
     }
 
-    pub fn is_in_check(&mut self, white: bool) -> bool {
+    pub fn is_in_check(&self, white: bool) -> bool {
         if white {
-            if let Some(cached) = self.white_cache {
+            if let Some(cached) = self.white_cache.get() {
                 return cached;
             }
         } else {
-            if let Some(cached) = self.black_cache {
+            if let Some(cached) = self.black_cache.get() {
                 return cached;
             }
         }
 
         let (player, _) = self.get_players(white);
         let is_checked =
-            self.tile_attacked(player.bb[Piece::King as usize].to_bit().unwrap(), !white);
+            self.tile_attacked(player.king_tile(), !white);
 
         if white {
-            self.white_cache = Some(is_checked);
+            self.white_cache.set(Some(is_checked));
         } else {
-            self.black_cache = Some(is_checked);
+            self.black_cache.set(Some(is_checked));
         }
 
         is_checked

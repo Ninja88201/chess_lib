@@ -13,6 +13,8 @@ pub mod helper;
 #[cfg(test)]
 mod tests;
 
+use std::cell::Cell;
+
 use crate::{CastlingRights, Move, Player, Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Board {
@@ -24,6 +26,6 @@ pub struct Board {
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
 
-    white_cache: Option<bool>,
-    black_cache: Option<bool>,
+    white_cache: Cell<Option<bool>>,
+    black_cache: Cell<Option<bool>>,
 }

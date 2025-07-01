@@ -17,8 +17,8 @@ impl Board {
             self.en_passant,
             self.castling,
             promotion,
-            self.white_cache,
-            self.black_cache,
+            self.white_cache.get(),
+            self.black_cache.get(),
         )
     }
     #[inline(always)]
@@ -28,6 +28,9 @@ impl Board {
     #[inline(always)]
     pub fn occupied_kingless(&self) -> Bitboard {
         self.white.attackers() | self.black.attackers()
+    }
+    pub fn current_players(&self) -> (&Player, &Player) {
+        self.get_players(self.white_turn)
     }
     #[inline(always)]
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {

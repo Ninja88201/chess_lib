@@ -53,6 +53,21 @@ impl Board {
             fen, turn, castling, en_passant, halfmove_clock, fullmove_number
         )
     }
+    pub fn get_move_history(&self) -> String
+    {
+        let mut string: String = String::new();
+        for (i, m) in self.history.iter().enumerate()
+        {
+            string.push_str(&format!("{}. ", i));
+            string.push_str(&m.to_string());
+            string.push_str("     ");
+            if i % 2 == 1 {
+                string.push('\n');
+            }
+        }
+
+        string
+    }
     pub fn move_from_algebraic(&self, s: &str) -> Option<Move> {
         let s = s.trim();
 
