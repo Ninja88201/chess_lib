@@ -5,7 +5,7 @@ use crate::{TILE_SIZE, SPRITE_SIZE, utils::tile_to_screen};
 pub fn render_all_pieces(board: &Board, flipped: bool, atlas: &Texture2D) {
     for (is_white, player) in [(true, &board.white), (false, &board.black)] {
         for (i, bb) in player.bb.iter().enumerate() {
-            for tile in *bb {
+            for tile in bb.iter() {
                 let (x, y) = tile_to_screen(tile, flipped);
                 draw_texture_ex(
                     atlas,

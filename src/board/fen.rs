@@ -53,16 +53,18 @@ impl Board {
             fen, turn, castling, en_passant, halfmove_clock, fullmove_number
         )
     }
-    pub fn get_move_history(&self) -> String
-    {
-        let mut string: String = String::new();
-        for (i, m) in self.history.iter().enumerate()
-        {
-            string.push_str(&format!("{}. ", i));
-            string.push_str(&m.to_string());
-            string.push_str("     ");
-            if i % 2 == 1 {
-                string.push('\n');
+    pub fn get_move_history(&self) -> String {
+        let mut string = String::new();
+
+        let pairs = self.history.chunks(2);
+
+        for (i, pair) in pairs.enumerate() {
+            string.push_str(&format!("{}. {}", i + 1, pair[0])); // White's move
+
+            if pair.len() > 1 {
+                string.push_str(&format!(",    {}    \n", pair[1])); // Black's move with more space after comma
+            } else {
+                string.push('\n'); // Only white moved
             }
         }
 

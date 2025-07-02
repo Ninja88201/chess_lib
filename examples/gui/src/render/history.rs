@@ -31,3 +31,4 @@ pub fn render_recent_history(board: &Board) {
         WHITE,
     );
 }
+
