@@ -7,8 +7,10 @@ pub mod r#move;
 pub use r#move::Move;
 pub mod move_list;
 pub use move_list::MoveList;
-pub mod move_error;
-pub use move_error::MoveError;
+pub mod move_enums;
+pub use move_enums::MoveError;
+pub use move_enums::GameState;
+pub use move_enums::MoveResult;
 pub mod castling;
 pub use castling::CastlingRights;
 

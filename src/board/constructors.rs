@@ -13,6 +13,9 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
 
+            half_moves: 0,
+            full_move: 1,
+
             white_cache: Cell::new(None),
             black_cache: Cell::new(None),
         }
@@ -27,6 +30,9 @@ impl Board {
             history: Vec::new(),
             en_passant: None,
 
+            half_moves: 0,
+            full_move: 1,
+
             white_cache: Cell::new(None),
             black_cache: Cell::new(None),
         }
@@ -39,6 +45,8 @@ impl Board {
         let active_color = fields.next().unwrap_or("w");
         let castling_rights = fields.next().unwrap_or("-");
         let en_passant = fields.next().unwrap_or("-");
+        let half_move = fields.next().unwrap_or("0");
+        let full_move = fields.next().unwrap_or("1");
 
         if piece_placement.split('/').count() != 8 {
             return Err("Invalid FEN: expected 8 ranks".to_string());
@@ -108,6 +116,9 @@ impl Board {
         } else {
             None
         };
+
+        board.half_moves = half_move.parse().unwrap();
+        board.full_move = full_move.parse().unwrap();
         Ok(board)
     }
 }

@@ -97,4 +97,25 @@ impl Player {
         }
         None
     }
+    pub fn get_all_pieces(&self) -> Vec<(Piece, Tile)> {
+        let mut out = Vec::new();
+        for piece in Piece::ALL_PIECES {
+            for t in self.bb[piece as usize] {
+                out.push((piece, t));
+            }
+        }
+        out
+    }
+    pub fn get_all_attackers(&self) -> Vec<(Piece, Tile)> {
+        let mut out = Vec::new();
+        for piece in Piece::ALL_PIECES {
+            if piece == Piece::King {
+                continue;
+            }
+            for t in self.bb[piece as usize] {
+                out.push((piece, t));
+            }
+        }
+        out
+    }
 }

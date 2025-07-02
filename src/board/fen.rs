@@ -45,12 +45,12 @@ impl Board {
             None => "-".to_string(),
         };
 
-        let halfmove_clock = 0;
-        let fullmove_number = 0;
+        // let halfmove_clock = 0;
+        // let fullmove_number = 0;
 
         format!(
             "{}{} {} {} {} {}",
-            fen, turn, castling, en_passant, halfmove_clock, fullmove_number
+            fen, turn, castling, en_passant, self.half_moves, self.full_move
         )
     }
     pub fn get_move_history(&self) -> String {
@@ -59,12 +59,12 @@ impl Board {
         let pairs = self.history.chunks(2);
 
         for (i, pair) in pairs.enumerate() {
-            string.push_str(&format!("{}. {}", i + 1, pair[0])); // White's move
+            string.push_str(&format!("{}. {}", i + 1, pair[0]));
 
             if pair.len() > 1 {
-                string.push_str(&format!(",    {}    \n", pair[1])); // Black's move with more space after comma
+                string.push_str(&format!(",    {}    \n", pair[1]));
             } else {
-                string.push('\n'); // Only white moved
+                string.push('\n');
             }
         }
 

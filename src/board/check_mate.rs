@@ -1,4 +1,4 @@
-use crate::{Board, MoveList, Piece, Tile};
+use crate::{Board, GameState, MoveList, Piece, Tile};
 
 impl Board {
     #[inline]
@@ -56,7 +56,7 @@ impl Board {
         is_checked
     }
 
-    pub fn is_checkmate(&mut self, white: bool) -> bool {
+    pub fn is_checkmate(&self, white: bool) -> bool {
         if !self.is_in_check(white) {
             return false;
         }
@@ -65,12 +65,57 @@ impl Board {
         self.generate_legal_moves(white, &mut moves);
         moves.is_empty()
     }
-    pub fn is_stalemate(&mut self, white: bool) -> bool {
+    pub fn is_stalemate(&self, white: bool) -> bool {
+        if self.half_moves >= 100 {
+            return true;
+        }
         if self.is_in_check(white) {
             return false;
         }
         let mut moves = MoveList::new();
         self.generate_legal_moves(white, &mut moves);
         moves.is_empty()
+    }
+    pub fn fifty_move_rule(&self) -> bool {
+        self.half_moves >= 100 
+    }
+    pub fn insufficient_material(&self) -> bool
+    {
+        let white_pieces = self.white.get_all_attackers();
+        let black_pieces = self.black.get_all_attackers();
+
+
+        match (white_pieces.len(), black_pieces.len()) {
+            (0, 0) => true,
+            (1, 0) | (0, 1) => {
+                matches!(white_pieces.first().or(black_pieces.first()).map(|x| x.0), Some(Piece::Bishop) | Some(Piece::Knight))
+            }
+            (1, 1) => {
+                match (white_pieces[0].0, black_pieces[0].0) {
+                    (Piece::Bishop, Piece::Bishop) => {
+                        let white_color = white_pieces[0].1.is_light_square();
+                        let black_color = black_pieces[0].1.is_light_square();
+                        white_color == black_color
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+    pub fn get_state(&self) -> GameState
+    {
+        let white = self.white_turn;
+        return if self.is_checkmate(white) {
+            GameState::Checkmate(white)
+        } else if self.is_stalemate(white) {
+            GameState::Stalemate(white)
+        } else if self.fifty_move_rule() {
+            GameState::FiftyMoveRule
+        } else if self.insufficient_material() {
+            GameState::InsufficientMaterial
+        } else {
+            GameState::Playing
+        }
     }
 }

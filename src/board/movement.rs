@@ -1,4 +1,4 @@
-use crate::{Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
+use crate::{MoveResult, Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
 
 impl Board {
     pub fn try_move_piece(
@@ -6,7 +6,7 @@ impl Board {
         from: Tile,
         to: Tile,
         promotion: Option<Piece>
-    ) -> Result<Option<Tile>, MoveError> {
+    ) -> Result<MoveResult, MoveError> {
         if let Some(p) = promotion {
             let mov = self.create_move(
                 from, 
@@ -16,7 +16,7 @@ impl Board {
                 Some(p)
             );
             self.make_move_unchecked(mov);
-            return Ok(None)
+            return Ok(MoveResult::MoveApplied(self.get_state()))
         }
         if from == to {
             return Err(MoveError::SameTile);
@@ -24,6 +24,9 @@ impl Board {
         
         if self.is_checkmate(self.white_turn) {
             return Err(MoveError::Checkmate);
+        }
+        if self.is_stalemate(self.white_turn) {
+            return Err(MoveError::Stalemate);
         }
         
         let result = self.get_piece_at_tile(from);
@@ -66,22 +69,11 @@ impl Board {
             }
 
             if promote == Some(Piece::Queen) && promotion.is_none() {
-                return Ok(Some(to))
+                return Ok(MoveResult::PromotionNeeded(to))
             }
             self.make_move_unchecked(mov);
 
-            // Stalemate
-            let mut remaining = MoveList::new();
-            self.generate_legal_moves(self.white_turn, &mut remaining);
-            if remaining.is_empty() && !self.is_in_check(self.white_turn) {
-                println!("Stalemate");
-            }
-
-            if self.is_checkmate(self.white_turn) {
-                println!("Checkmate");
-            }
-
-            return Ok(None);
+            return Ok(MoveResult::MoveApplied(self.get_state()));
         } else {
             return Err(MoveError::NoPieceSelected);
         }
@@ -91,10 +83,17 @@ impl Board {
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
+            self.full_move += 1;
             (&mut self.black, &mut self.white)
         };
+        self.half_moves += 1;
 
+        if mov.piece() == Piece::Pawn
+        {
+            self.half_moves = 0;
+        }
         if let Some(p) = mov.capture() {
+            self.half_moves = 0;
             let target_tile = if mov.en_passant() == Some(mov.to()) {
                 mov.to().backward(self.white_turn).unwrap()
             } else {
@@ -173,7 +172,10 @@ impl Board {
         if let Some(last_move) = self.history.pop() {
             let (player, opponent) = match !self.white_turn {
                 true => (&mut self.white, &mut self.black),
-                false => (&mut self.black, &mut self.white),
+                false => {
+                    self.full_move -= 1;
+                    (&mut self.black, &mut self.white)
+                },
             };
             if last_move.promoted_to().is_some() {
                 player.remove_piece(last_move.to());
@@ -215,6 +217,7 @@ impl Board {
             self.en_passant = last_move.en_passant();
             self.white_cache.set(last_move.white_cache());
             self.black_cache.set(last_move.black_cache());
+            self.half_moves = last_move.prev_half_moves();
 
             self.white_turn = !self.white_turn;
         }

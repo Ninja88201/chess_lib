@@ -9,6 +9,7 @@ pub mod attackgen;
 pub mod debug;
 pub mod fen;
 pub mod helper;
+pub mod history;
 
 #[cfg(test)]
 mod tests;
@@ -25,6 +26,9 @@ pub struct Board {
     pub white_turn: bool,
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
+
+    pub half_moves: u8,
+    pub full_move: u32,
 
     white_cache: Cell<Option<bool>>,
     black_cache: Cell<Option<bool>>,

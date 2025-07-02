@@ -19,6 +19,7 @@ impl Board {
             promotion,
             self.white_cache.get(),
             self.black_cache.get(),
+            self.half_moves,
         )
     }
     #[inline(always)]

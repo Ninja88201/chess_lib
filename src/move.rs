@@ -32,6 +32,9 @@ impl Move {
     // 36 - 37  -> BCache   ( Option<bool> )
     const BLACK_CACHE_SHIFT: u8 = 36;
 
+    // 38 - 45 -> PrevHalfMoves (u8)
+    const PREV_HALF_MOVE_SHIFT: u8 = 38;
+
     fn encode_option_bool(val: Option<bool>) -> u64 {
         match val {
             None => 0b00,
@@ -59,6 +62,7 @@ impl Move {
         promoted_to: Option<Piece>,
         white_cache: Option<bool>,
         black_cache: Option<bool>,
+        prev_half_moves: u8,
     ) -> Self {
         let mut data = 0u64;
         data |= (from.to_u8() as u64) << Self::FROM_SHIFT;
@@ -70,6 +74,7 @@ impl Move {
         data |= (prev_castle.to_u8() as u64) << Self::CASTLE_SHIFT;
         data |= Self::encode_option_bool(white_cache) << Self::WHITE_CACHE_SHIFT;
         data |= Self::encode_option_bool(black_cache) << Self::BLACK_CACHE_SHIFT;
+        data |= (prev_half_moves as u64) << Self::PREV_HALF_MOVE_SHIFT;
         Self(data)
     }
 
@@ -102,6 +107,9 @@ impl Move {
     }
     pub fn black_cache(&self) -> Option<bool> {
         Self::decode_option_bool((self.0 >> Self::BLACK_CACHE_SHIFT) & 0b11)
+    }
+    pub fn prev_half_moves(&self) -> u8 {
+        ((self.0 >> Self::PREV_HALF_MOVE_SHIFT) & 0xFF) as u8
     }
 }
 

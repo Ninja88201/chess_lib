@@ -103,6 +103,10 @@ impl Tile {
             false => y == 6,
         }
     }
+    pub fn is_light_square(&self) -> bool {
+        let (file, rank) = self.get_coords();
+        (file + rank) % 2 == 0
+    }
 
     // Attack Generation
     pub fn rook_attacks(&self, occ: Bitboard) -> Bitboard {
