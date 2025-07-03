@@ -66,9 +66,6 @@ impl Board {
         moves.is_empty()
     }
     pub fn is_stalemate(&self, white: bool) -> bool {
-        if self.half_moves >= 100 {
-            return true;
-        }
         if self.is_in_check(white) {
             return false;
         }
