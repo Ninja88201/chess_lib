@@ -36,6 +36,7 @@ pub enum GameState {
     Stalemate(bool),
     InsufficientMaterial,
     FiftyMoveRule,
+    ThreeRepetition,
 
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

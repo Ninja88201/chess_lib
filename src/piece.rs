@@ -34,6 +34,23 @@ impl Piece {
             _ => panic!("Invalid piece index"),
         }
     }
+    pub fn to_zobrist_index(&self, white: bool) -> usize {
+        match (self, white) {
+            (Piece::Pawn, true) => 0,
+            (Piece::Knight, true) => 1,
+            (Piece::Bishop, true) => 2,
+            (Piece::Rook, true) => 3,
+            (Piece::Queen, true) => 4,
+            (Piece::King, true) => 5,
+
+            (Piece::Pawn, false) => 6,
+            (Piece::Knight, false) => 7,
+            (Piece::Bishop, false) => 8,
+            (Piece::Rook, false) => 9,
+            (Piece::Queen, false) => 10,
+            (Piece::King, false) => 11,
+        }
+    }
     pub fn to_fen_char(&self, white: bool) -> char {
         let c = match self {
             Piece::Pawn => 'p',

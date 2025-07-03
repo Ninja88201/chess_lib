@@ -26,6 +26,7 @@ pub struct Board {
     pub white_turn: bool,
     pub en_passant: Option<Tile>,
     pub history: Vec<Move>,
+    rep_history: Vec<u64>,
 
     pub half_moves: u8,
     pub full_move: u32,

@@ -79,6 +79,10 @@ impl Board {
     pub fn fifty_move_rule(&self) -> bool {
         self.half_moves >= 100 
     }
+    pub fn three_fold_rep(&self) -> bool {
+        let current = self.to_zobrist_hash();
+        self.rep_history.iter().filter(|&&hash| hash == current).count() >= 3
+    }
     pub fn insufficient_material(&self) -> bool
     {
         let white_pieces = self.white.get_all_attackers();
@@ -114,6 +118,8 @@ impl Board {
             GameState::FiftyMoveRule
         } else if self.insufficient_material() {
             GameState::InsufficientMaterial
+        } else if self.three_fold_rep() {
+            GameState::ThreeRepetition
         } else {
             GameState::Playing
         }

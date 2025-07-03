@@ -29,6 +29,7 @@ pub use magics::king_attacks::KING_ATTACKS;
 pub use magics::knight_attacks::KNIGHT_ATTACKS;
 pub use magics::rook_attacks::ROOK_ATTACKS;
 pub use magics::rook_magics::ROOK_MAGICS;
+pub mod zobrist;
 
 #[cfg(test)]
 mod tests {

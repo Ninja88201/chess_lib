@@ -11,6 +11,7 @@ impl Board {
 
             white_turn: true,
             history: Vec::new(),
+            rep_history: Vec::new(),
             en_passant: None,
 
             half_moves: 0,
@@ -28,6 +29,7 @@ impl Board {
 
             white_turn: true,
             history: Vec::new(),
+            rep_history: Vec::new(),
             en_passant: None,
 
             half_moves: 0,

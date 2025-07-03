@@ -166,6 +166,7 @@ impl Board {
         self.white_turn = !self.white_turn;
         self.white_cache.set(None);
         self.black_cache.set(None);
+        self.rep_history.push(self.to_zobrist_hash());
     }
     #[inline(always)]
     pub fn undo_move(&mut self) {
@@ -218,6 +219,7 @@ impl Board {
             self.white_cache.set(last_move.white_cache());
             self.black_cache.set(last_move.black_cache());
             self.half_moves = last_move.prev_half_moves();
+            self.rep_history.pop();
 
             self.white_turn = !self.white_turn;
         }
