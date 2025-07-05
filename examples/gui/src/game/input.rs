@@ -52,15 +52,19 @@ impl Game {
                 match self.selected_tile {
                     Some(from) => {
                         match self.board.try_move_piece(from, clicked_tile, None) {
-                            Ok(Some(to)) => {
-                                self.grace = true;
-                                self.state = GameState::Promoting(to);
-                            }
-                            Ok(None) => {
+                            Ok(result) => {
+                                match result {
+                                    chess_lib::MoveResult::MoveApplied(_) => {           
+                                    },
+                                    chess_lib::MoveResult::PromotionNeeded(tile) => {
+                                        self.grace = true;
+                                        self.state = GameState::Promoting(tile)
+                                    },
+                                }
                                 self.selected_tile = None;
                             }
                             Err(e) => {
-                                use chess_lib::move_error::MoveError::*;
+                                use chess_lib::move_enums::MoveError::*;
                                 match e {
                                     IllegalMove => println!("Illegal move"),
                                     WrongTurn | NoPieceSelected | SameTile => self.selected_tile = None,

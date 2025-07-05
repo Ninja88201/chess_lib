@@ -3,60 +3,74 @@ use std::collections::HashMap;
 use crate::{Bitboard, Board, CastlingRights, MoveList, Piece, Tile};
 
 impl Board {
-    #[inline]
     pub fn generate_legal_moves(&self, white: bool, moves: &mut MoveList) {
         let (player, _) = self.get_players(white);
         let checkers = self.get_checkers(white);
         let checkers_count = checkers.count_ones();
 
-        self.generate_king_moves(player.king_tile(), white, moves);
+        let king_tile = player.king_tile();
 
-        // Double Check ( Only king moves )
+        self.generate_king_moves(king_tile, white, moves);
+
+        // Double check ( King moves only )
         if checkers_count > 1 {
-            return; 
+            return;
         }
 
-        let mut targets: Option<Bitboard> = None;
-        if checkers_count == 1 {
-            if let Some(pos) = checkers.to_bit() {
-                let checker = self.get_piece_at_tile(pos).unwrap();
-                let between = if matches!(checker.0, Piece::Bishop | Piece::Rook | Piece::Queen) {
-                    pos.get_between(player.king_tile())
-                } else {
-                    Bitboard::EMPTY
-                };
-                let mut valid_targets = Bitboard::EMPTY;
-                valid_targets.set_bit(pos, true);
-                valid_targets |= between;
-                targets = Some(valid_targets);
-            }
-        }
+        let targets = if checkers_count == 1 {
+            let checker_tile = checkers.to_bit().expect("Expected exactly one checker");
+            let checker_piece = self.get_piece_at_tile(checker_tile).unwrap();
+
+            let between = if matches!(checker_piece.0, Piece::Bishop | Piece::Rook | Piece::Queen) {
+                checker_tile.get_between(king_tile)
+            } else {
+                Bitboard::EMPTY
+            };
+
+            checker_tile.to_mask() | between
+        } else {
+            Bitboard::ALL
+        };
+
         let pinned = self.get_pinned_pieces(white);
 
-        for pawn in player.bb[Piece::Pawn as usize] {
-            let mask = combine_masks(pinned.get(&pawn).copied(), targets);
-            self.generate_pawn_moves(pawn, white, mask, moves);
+        // Pawns
+        for pawn_tile in player.bb[Piece::Pawn as usize] {
+            let pin_mask = pinned.get(&pawn_tile).copied().unwrap_or(Bitboard::ALL);
+            let move_mask = pin_mask & targets;
+            self.generate_pawn_moves(pawn_tile, white, Some(move_mask), moves);
         }
-        for knight in player.bb[Piece::Knight as usize] {
-            if pinned.contains_key(&knight) {
+
+        // Knights
+        for knight_tile in player.bb[Piece::Knight as usize] {
+            if pinned.contains_key(&knight_tile) {
                 continue;
             }
-            let mask = targets;
-            self.generate_knight_moves(knight, white, mask, moves);
+            self.generate_knight_moves(knight_tile, white, Some(targets), moves);
         }
-        for bishop in player.bb[Piece::Bishop as usize] {
-            let mask = combine_masks(pinned.get(&bishop).copied(), targets);
-            self.generate_sliding_moves(bishop, white, false, true, mask, moves);
+
+        // Bishops
+        for bishop_tile in player.bb[Piece::Bishop as usize] {
+            let pin_mask = pinned.get(&bishop_tile).copied().unwrap_or(Bitboard::ALL);
+            let move_mask = pin_mask & targets;
+            self.generate_sliding_moves(bishop_tile, white, false, true, Some(move_mask), moves);
         }
-        for rook in player.bb[Piece::Rook as usize] {
-            let mask = combine_masks(pinned.get(&rook).copied(), targets);
-            self.generate_sliding_moves(rook, white, true, false, mask, moves);
+
+        // Rooks
+        for rook_tile in player.bb[Piece::Rook as usize] {
+            let pin_mask = pinned.get(&rook_tile).copied().unwrap_or(Bitboard::ALL);
+            let move_mask = pin_mask & targets;
+            self.generate_sliding_moves(rook_tile, white, true, false, Some(move_mask), moves);
         }
-        for queen in player.bb[Piece::Queen as usize] {
-            let mask = combine_masks(pinned.get(&queen).copied(), targets);
-            self.generate_sliding_moves(queen, white, true, true, mask, moves);
+
+        // Queens
+        for queen_tile in player.bb[Piece::Queen as usize] {
+            let pin_mask = pinned.get(&queen_tile).copied().unwrap_or(Bitboard::ALL);
+            let move_mask = pin_mask & targets;
+            self.generate_sliding_moves(queen_tile, white, true, true, Some(move_mask), moves);
         }
     }
+
 
     pub fn generate_legal_moves_from(&self, tile: Tile, moves: &mut MoveList) {
         let (piece, white) = match self.get_piece_at_tile(tile) {
@@ -202,7 +216,6 @@ impl Board {
         pins
     }
 
-    #[inline]
     pub fn generate_pawn_moves(
         &self,
         tile: Tile,
@@ -210,24 +223,20 @@ impl Board {
         targets: Option<Bitboard>,
         moves: &mut MoveList,
     ) {
+        // Single forward
         if let Some(one_step) = tile.forward(white) {
-            if !self.occupied().get_bit(one_step) {
-                if targets.map_or(true, |m: Bitboard| m.get_bit(one_step)) {
+            if self.occupied().get_bit(one_step) {
+            } else {
+                if targets.map_or(true, |mask| mask.get_bit(one_step)) {
                     self.try_push_pawn_move(tile, one_step, white, None, moves);
                 }
 
+                // Double forward
                 if tile.is_pawn_start(white) {
                     if let Some(two_step) = one_step.forward(white) {
-                        if !self.occupied().get_bit(two_step) {
-                            if targets.map_or(true, |m| m.get_bit(two_step)) {
-                                moves.push(self.create_move(
-                                    tile,
-                                    two_step,
-                                    Piece::Pawn,
-                                    None,
-                                    None,
-                                ));
-                            }
+                        if self.occupied().get_bit(two_step) {
+                        } else if targets.map_or(true, |mask| mask.get_bit(two_step)) {
+                            moves.push(self.create_move(tile, two_step, Piece::Pawn, None, None));
                         }
                     }
                 }
@@ -238,51 +247,34 @@ impl Board {
             tile.left(white).and_then(|t| t.forward(white)),
             tile.right(white).and_then(|t| t.forward(white)),
         ] {
-            if let Some(to) = maybe_target {
-                if Some(to) == self.en_passant
-                    && targets.map_or(true, |m| m.get_bit(to.backward(white).unwrap()))
-                {
-                    if let Some(_) = if white {
-                        to.offset(0, -1)
-                    } else {
-                        to.offset(0, 1)
-                    } {
-                        let king_tile = if white {
-                            self.white.bb[Piece::King as usize].to_bit().unwrap()
-                        } else {
-                            self.black.bb[Piece::King as usize].to_bit().unwrap()
-                        };
+            let to = match maybe_target {
+                Some(t) => t,
+                None => continue,
+            };
 
-                        let occupied = self.occupied();
-                        let (_, opponent) = self.get_players(white);
-                        let enemy_sliders =
-                            opponent.bb[Piece::Rook as usize] | opponent.bb[Piece::Queen as usize];
+            // En passant capture check
+            if Some(to) == self.en_passant && targets.map_or(true, |mask| mask.get_bit(to.backward(white).unwrap())) {
+                let king_tile = if white {
+                    self.white.bb[Piece::King as usize].to_bit().unwrap()
+                } else {
+                    self.black.bb[Piece::King as usize].to_bit().unwrap()
+                };
+                let occupied = self.occupied();
+                let (_, opponent) = self.get_players(white);
+                let enemy_sliders = opponent.bb[Piece::Rook as usize] | opponent.bb[Piece::Queen as usize];
 
-                        if !Self::is_illegal_en_passant_discovery(
-                            tile,
-                            to,
-                            king_tile,
-                            occupied,
-                            enemy_sliders,
-                        ) {
-                            moves.push(self.create_move(
-                                tile,
-                                to,
-                                Piece::Pawn,
-                                Some(Piece::Pawn),
-                                None,
-                            ));
-                        }
-                    }
+                if !Self::is_illegal_en_passant_discovery(tile, to, king_tile, occupied, enemy_sliders) {
+                    moves.push(self.create_move(tile, to, Piece::Pawn, Some(Piece::Pawn), None));
                 }
-
-                if self.is_square_occupied_by_enemy(to, white)
-                    && targets.map_or(true, |m| m.get_bit(to))
-                {
-                    let captured = self.get_piece_at_tile(to).map(|(p, _)| p);
-                    self.try_push_pawn_move(tile, to, white, captured, moves);
-                }
+                continue;
             }
+
+            // Normal capture
+            if !self.is_square_occupied_by_enemy(to, white) || !targets.map_or(true, |mask| mask.get_bit(to)) {
+                continue;
+            }
+            let captured = self.get_piece_at_tile(to).map(|(p, _)| p);
+            self.try_push_pawn_move(tile, to, white, captured, moves);
         }
     }
     pub fn is_illegal_en_passant_discovery(

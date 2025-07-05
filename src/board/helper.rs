@@ -22,25 +22,21 @@ impl Board {
             self.half_moves,
         )
     }
-    #[inline(always)]
     pub fn occupied(&self) -> Bitboard {
         self.white.pieces | self.black.pieces
     }
-    #[inline(always)]
     pub fn occupied_kingless(&self) -> Bitboard {
         self.white.attackers() | self.black.attackers()
     }
     pub fn current_players(&self) -> (&Player, &Player) {
         self.get_players(self.white_turn)
     }
-    #[inline(always)]
     pub fn get_players(&self, white: bool) -> (&Player, &Player) {
         match white {
             true => (&self.white, &self.black),
             false => (&self.black, &self.white),
         }
     }
-    #[inline(always)]
     pub fn get_players_mut(&mut self, white: bool) -> (&mut Player, &mut Player) {
         match white {
             true => (&mut self.white, &mut self.black),

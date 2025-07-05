@@ -1,7 +1,6 @@
 use crate::{Board, GameState, MoveList, Piece, Tile};
 
 impl Board {
-    #[inline]
     pub fn tile_attacked(&self, tile: Tile, by_white: bool) -> bool {
         let (attacker, _) = self.get_players(by_white);
         let occ = self.occupied();
@@ -78,7 +77,10 @@ impl Board {
     }
     pub fn three_fold_rep(&self) -> bool {
         let current = self.to_zobrist_hash();
-        self.rep_history.iter().filter(|&&hash| hash == current).count() >= 3
+        self.repetition_history.iter()
+            .filter(|&&hash| hash == current)
+            .take(3)
+            .count() == 3
     }
     pub fn insufficient_material(&self) -> bool
     {
@@ -107,7 +109,7 @@ impl Board {
     pub fn get_state(&self) -> GameState
     {
         let white = self.white_turn;
-        return if self.is_checkmate(white) {
+        if self.is_checkmate(white) {
             GameState::Checkmate(white)
         } else if self.is_stalemate(white) {
             GameState::Stalemate(white)

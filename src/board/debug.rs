@@ -1,7 +1,6 @@
 use crate::{Board, MoveList};
 
 impl Board {
-    #[inline(always)]
     pub fn positions(&mut self, depth: usize) -> i64 {
         if depth == 0 {
             return 1;
@@ -23,7 +22,6 @@ impl Board {
 
         positions
     }
-    #[inline(always)]
     pub fn positions_divide(&mut self, depth: usize) -> i64 {
         if depth == 0 {
             return 1;

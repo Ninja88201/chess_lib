@@ -9,7 +9,6 @@ pub mod attackgen;
 pub mod debug;
 pub mod fen;
 pub mod helper;
-pub mod history;
 
 #[cfg(test)]
 mod tests;
@@ -25,8 +24,10 @@ pub struct Board {
 
     pub white_turn: bool,
     pub en_passant: Option<Tile>,
-    pub history: Vec<Move>,
-    rep_history: Vec<u64>,
+
+    // Store move & its S.A.N string while we have context 
+    pub history: Vec<(Move, String)>,
+    repetition_history: Vec<u64>,
 
     pub half_moves: u8,
     pub full_move: u32,

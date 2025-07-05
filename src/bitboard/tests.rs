@@ -18,8 +18,8 @@ fn bitwise_and_or() {
     let t1 = Tile::new_index(3).unwrap();
     let t2 = Tile::new_index(6).unwrap();
 
-    let bb1 = Bitboard::from_bit(t1);
-    let bb2 = Bitboard::from_bit(t2);
+    let bb1 = Bitboard::from_tile(t1);
+    let bb2 = Bitboard::from_tile(t2);
 
     let bb_or = bb1 | bb2;
     assert!(bb_or.get_bit(t1));
@@ -32,7 +32,7 @@ fn bitwise_and_or() {
 #[test]
 fn not_operation() {
     let tile = Tile::new_index(2).unwrap();
-    let bb = Bitboard::from_bit(tile);
+    let bb = Bitboard::from_tile(tile);
     let bb_not = !bb;
 
     assert!(!bb_not.get_bit(tile));
@@ -51,10 +51,10 @@ fn shift_operations() {
 #[test]
 fn to_bit_singleton() {
     let tile = Tile::new_index(10).unwrap();
-    let bb = Bitboard::from_bit(tile);
+    let bb = Bitboard::from_tile(tile);
     assert_eq!(bb.to_bit(), Some(tile));
 
-    let combined = bb | Bitboard::from_bit(Tile::new_index(11).unwrap());
+    let combined = bb | Bitboard::from_tile(Tile::new_index(11).unwrap());
     assert_eq!(combined.to_bit(), None);
 }
 

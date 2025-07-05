@@ -78,8 +78,8 @@ impl Board {
             return Err(MoveError::NoPieceSelected);
         }
     }
-    #[inline(always)]
     pub fn make_move_unchecked(&mut self, mov: Move) {
+        let san = self.move_to_san(&mov);
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
@@ -161,16 +161,15 @@ impl Board {
         {
             self.en_passant = Some(mov.to().backward(self.white_turn).unwrap());
         }
-        self.history.push(mov);
+        self.history.push((mov, san));
 
         self.white_turn = !self.white_turn;
         self.white_cache.set(None);
         self.black_cache.set(None);
-        self.rep_history.push(self.to_zobrist_hash());
+        self.repetition_history.push(self.to_zobrist_hash());
     }
-    #[inline(always)]
     pub fn undo_move(&mut self) {
-        if let Some(last_move) = self.history.pop() {
+        if let Some((last_move, _)) = self.history.pop() {
             let (player, opponent) = match !self.white_turn {
                 true => (&mut self.white, &mut self.black),
                 false => {
@@ -219,7 +218,7 @@ impl Board {
             self.white_cache.set(last_move.white_cache());
             self.black_cache.set(last_move.black_cache());
             self.half_moves = last_move.prev_half_moves();
-            self.rep_history.pop();
+            self.repetition_history.pop();
 
             self.white_turn = !self.white_turn;
         }

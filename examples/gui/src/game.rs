@@ -25,7 +25,8 @@ pub struct Game {
 
 impl Game {
     pub async fn new() -> Self {
-        let board = Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        let board = Board::new_from_fen("2N1N3/1N3N2/8/1N3N2/2N1N3/8/8/k6K w - - 0 1")
+        // let board = Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
             .unwrap();
         let piece_atlas = load_texture("assets/PieceAtlas.png").await.unwrap();
         piece_atlas.set_filter(FilterMode::Linear);

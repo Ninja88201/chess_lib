@@ -1,7 +1,6 @@
 use crate::{Bitboard, Board, Piece, Tile};
 
 impl Board {
-    #[inline]
     pub fn generate_attacks(&self, white: bool) -> Bitboard {
         let (player, _) = self.get_players(white);
         let mut attacks = Bitboard::EMPTY;
@@ -23,7 +22,6 @@ impl Board {
         attacks
     }
 
-    #[inline]
     pub fn generate_attacks_from(&self, tile: Tile) -> Bitboard {
         match self.get_piece_at_tile(tile) {
             Some((piece, white)) => self.generate_attacks_from_piece(tile, piece, white, None),
@@ -31,7 +29,6 @@ impl Board {
         }
     }
 
-    #[inline(always)]
     pub fn generate_attacks_from_piece(
         &self,
         tile: Tile,
@@ -49,7 +46,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub fn generate_sliding_attacks(
         &self,
         tile: Tile,

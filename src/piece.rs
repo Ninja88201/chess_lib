@@ -62,6 +62,16 @@ impl Piece {
         };
         if white { c.to_ascii_uppercase() } else { c }
     }
+    pub fn to_san_char(&self) -> Option<char> {
+        match self {
+            Piece::Pawn => None,
+            Piece::Knight => Some('N'),
+            Piece::Bishop => Some('B'),
+            Piece::Rook => Some('R'),
+            Piece::Queen => Some('Q'),
+            Piece::King => Some('K'),
+        }
+    }
     pub fn to_unicode(&self, is_white: bool) -> char {
         match (self, is_white) {
             (Piece::King, true) => '♔',

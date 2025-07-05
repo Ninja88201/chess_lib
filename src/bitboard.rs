@@ -12,6 +12,7 @@ pub struct Bitboard(u64);
 
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
+    pub const ALL: Bitboard = Bitboard(0xFFFF_FFFF_FFFF_FFFF);
 
     #[inline(always)]
     pub const fn new(bits: u64) -> Self {
@@ -19,8 +20,8 @@ impl Bitboard {
     }
 
     #[inline(always)]
-    pub fn from_bit(bit: Tile) -> Self {
-        Self(1u64 << bit.to_u8())
+    pub fn from_tile(tile: Tile) -> Self {
+        Self(1u64 << tile.to_u8())
     }
     pub fn to_u64(&self) -> u64 {
         self.0

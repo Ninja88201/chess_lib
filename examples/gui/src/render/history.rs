@@ -6,7 +6,7 @@ use crate::consts::TILE_SIZE;
 
 
 pub fn render_recent_history(board: &Board) {
-    let moves = board.get_move_history();
+    let moves = board.to_pgn();
 
     let all_moves: Vec<&str> = moves.lines().collect();
 
