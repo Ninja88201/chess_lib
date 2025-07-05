@@ -292,7 +292,7 @@ impl Board {
 
         s.push_str(&piece.to_string());
 
-        let (player, _) = self.current_players();
+        let (_, player) = self.current_players();
 
         if player.bb[piece as usize].count_ones() <= 1 {
             return None
