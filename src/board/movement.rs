@@ -79,7 +79,7 @@ impl Board {
         }
     }
     pub fn make_move_unchecked(&mut self, mov: Move) {
-        let san = self.move_to_san(&mov);
+        let mut san = self.move_to_san(&mov);
         let (player, opponent) = if self.white_turn {
             (&mut self.white, &mut self.black)
         } else {
@@ -161,12 +161,19 @@ impl Board {
         {
             self.en_passant = Some(mov.to().backward(self.white_turn).unwrap());
         }
-        self.history.push((mov, san));
-
+        
         self.white_turn = !self.white_turn;
         self.white_cache.set(None);
         self.black_cache.set(None);
         self.repetition_history.push(self.to_zobrist_hash());
+
+        if self.is_checkmate(self.white_turn) {
+            san.push('#');
+        } else if self.is_in_check(self.white_turn) {
+            san.push('+');
+        }
+        self.history.push((mov, san));
+        
     }
     pub fn undo_move(&mut self) {
         if let Some((last_move, _)) = self.history.pop() {

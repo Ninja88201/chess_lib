@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Board, Move, MoveList, Piece, Tile};
+use crate::{Board, GameState, Move, MoveList, Piece, Tile};
 
 impl Board {
     pub fn to_fen(&self) -> String {
@@ -72,6 +72,21 @@ impl Board {
             pgn.push_str(&format!("{} ", san));
         }
 
+        let state = self.get_state();
+        if let GameState::Checkmate(w) = state {
+            if w {
+                pgn.push_str("0-1");
+            } else {
+                pgn.push_str("1-0");
+            }
+        } else if matches!(state, GameState::Stalemate(_)) 
+            || state == GameState::FiftyMoveRule 
+            || state == GameState::InsufficientMaterial 
+            || state == GameState::ThreeRepetition {
+                pgn.push_str("1/2-1/2");
+        } else {
+            pgn.push('*');
+        }
         pgn
     }
     pub fn move_from_algebraic(&self, s: &str) -> Option<Move> {
@@ -240,13 +255,6 @@ impl Board {
             if let Some(pc) = p.to_san_char() {
                 s.push(pc);
             }
-        }
-
-        // Check / Checkmate
-        if self.is_checkmate(self.white_turn) {
-            s.push('#');
-        } else if self.is_in_check(self.white_turn) {
-            s.push('+');
         }
 
         s
