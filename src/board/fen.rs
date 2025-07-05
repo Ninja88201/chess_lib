@@ -53,16 +53,33 @@ impl Board {
             fen, turn, castling, en_passant, self.half_moves, self.full_move
         )
     }
+    pub fn to_pgn(&self) -> String {
+        let mut pgn = String::new();
+
+        for (i, mv) in self.history.iter().enumerate() {
+            if i % 2 == 0 {
+                let move_number = i / 2 + 1;
+                pgn.push_str(&format!("{}. ", move_number));
+            }
+
+            let san = self.move_to_san(mv);
+            pgn.push_str(&san);
+            pgn.push(' ');
+        }
+
+        pgn.push('*');
+        pgn
+    }
     pub fn get_move_history(&self) -> String {
         let mut string = String::new();
 
         let pairs = self.history.chunks(2);
 
         for (i, pair) in pairs.enumerate() {
-            string.push_str(&format!("{}. {}", i + 1, pair[0]));
+            string.push_str(&format!("{}. {}", i + 1, self.move_to_san(&pair[0])));
 
             if pair.len() > 1 {
-                string.push_str(&format!(",    {}    \n", pair[1]));
+                string.push_str(&format!(",    {}    \n", self.move_to_san(&pair[1])));
             } else {
                 string.push('\n');
             }
@@ -214,6 +231,105 @@ impl Board {
 
         Some(self.create_move(from, to, piece, captured, promotion))
     }
+    pub fn move_to_san(&self, mov: &Move) -> String
+    {
+        let piece = mov.piece();
+        let from = mov.from();
+        let to = mov.to();
+        let capture = mov.capture();
+        let promo = mov.promoted_to();
+
+        if piece == Piece::King {
+            if (from == Tile::E1 && to == Tile::G1) || (from == Tile::E8 && to == Tile::G8) {
+                return "O-O".to_string()
+            } else if (from == Tile::E1 && to == Tile::C1)
+                || (from == Tile::E8 && to == Tile::C8)
+            {
+                return "O-O-O".to_string()
+            }
+        }
+
+        let mut s = String::new();
+
+        if let Some(d) = self.get_disambig(mov) {
+            s.push_str(&d);
+        }
+
+        if capture.is_some() {
+            if piece == Piece::Pawn {
+                let (from_file, _) = from.get_coords();
+                s.push((b'a' + from_file as u8) as char);
+            }
+            s.push('x');
+        }
+
+        s.push_str(&to.to_string());
+
+        if let Some(p) = promo {
+            s.push('=');
+            s.push_str(&p.to_string());
+        }
+
+        // --- Check or checkmate suffix ---
+        if self.is_checkmate(self.white_turn) {
+            s.push('#');
+        } else if self.is_in_check(self.white_turn) {
+            s.push('+');
+        }
+
+        s
+    }
+    pub fn get_disambig(&self, mov: &Move) -> Option<String> {
+        let mut s = String::new();
+
+        let piece = mov.piece();
+        let from = mov.from();
+        let to = mov.to();
+        
+        if piece == Piece::Pawn || piece == Piece::King {
+            return None
+        }
+
+        s.push_str(&piece.to_string());
+
+        let (player, _) = self.current_players();
+
+        if player.bb[piece as usize].count_ones() <= 1 {
+            return None
+        }
+
+        let mut targets = self.generate_attacks_from_piece(from, piece, self.white_turn, None);
+        targets &= player.bb[piece as usize];
+
+        let (from_file, from_rank) = from.get_coords();
+        let mut same_rank = false;
+        let mut same_file = false;
+        let mut moves = MoveList::new();
+        for t in player.bb[piece as usize] {
+            self.generate_legal_moves_from(t, &mut moves);
+            if !moves.contains_move(from, to) {
+                continue;
+            }
+            let (file, rank) = t.get_coords();
+            if file == from_file {
+                same_file = true;
+            }
+            if rank == from_rank {
+                same_rank = true;
+            }
+            if same_file && same_rank {
+                break;
+            }
+        }
+        if same_file {
+            s.push((b'a' + from_file as u8) as char);
+        }
+        if same_rank {
+            s.push((b'1' + from_rank as u8) as char);
+        }
+        Some(s)
+    }
+
 }
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

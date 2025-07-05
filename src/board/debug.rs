@@ -38,7 +38,7 @@ impl Board {
             self.make_move_unchecked(m);
             let count = self.positions(depth - 1);
             positions += count;
-            println!("{}, {}", m, count);
+            println!("{}, {}", self.move_to_san(&m), count);
             self.undo_move();
         }
 

@@ -55,13 +55,17 @@ impl Move {
     pub fn new(
         from: Tile,
         to: Tile,
+
         piece: Piece,
         capture: Option<Piece>,
+
         en_passant: Option<Tile>,
         prev_castle: CastlingRights,
         promoted_to: Option<Piece>,
+
         white_cache: Option<bool>,
         black_cache: Option<bool>,
+
         prev_half_moves: u8,
     ) -> Self {
         let mut data = 0u64;
@@ -116,52 +120,5 @@ impl Move {
 impl Default for Move {
     fn default() -> Self {
         Self(0)
-    }
-}
-
-impl fmt::Display for Move {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let piece = self.piece();
-        let from = self.from();
-        let to = self.to();
-        let capture = self.capture();
-        let promo = self.promoted_to();
-        // let enp = self.en_passant();
-
-        if piece == Piece::King {
-            if (from == Tile::E1 && to == Tile::G1) || (from == Tile::E8 && to == Tile::G8) {
-                return write!(f, "O-O");
-            } else if (from == Tile::E1 && to == Tile::C1)
-                || (from == Tile::E8 && to == Tile::C8)
-            {
-                return write!(f, "O-O-O");
-            }
-        }
-
-        let mut s = String::new();
-        if piece != Piece::Pawn {
-            s.push_str(&piece.to_string());
-        }
-
-        if capture.is_some() {
-            if piece == Piece::Pawn {
-                let (from_file, _) = from.get_coords();
-                s.push((b'a' + from_file as u8) as char);
-            }
-            s.push('x');
-        }
-
-        s.push_str(&to.to_string());
-
-        if let Some(p) = promo {
-            s.push('=');
-            s.push_str(&p.to_string());
-        }
-
-        // if enp.is_some() {
-        //     s.push_str(" e.p.");
-        // }
-
-        write!(f, "{s}")
     }
 }
