@@ -50,6 +50,9 @@ impl Board {
         let half_move = fields.next().unwrap_or("0");
         let full_move = fields.next().unwrap_or("1");
 
+        let mut white_kings = 0;
+        let mut black_kings = 0;
+
         let ranks: Vec<&str> = piece_placement.split('/').collect();
         if ranks.len() != 8 {
             return Err("Invalid FEN: expected 8 ranks".to_string());
@@ -74,7 +77,14 @@ impl Board {
                     'b' => Piece::Bishop,
                     'r' => Piece::Rook,
                     'q' => Piece::Queen,
-                    'k' => Piece::King,
+                    'k' => {
+                        if is_white {
+                            white_kings += 1;
+                        } else {
+                            black_kings += 1;
+                        }
+                        Piece::King
+                    }
                     _ => return Err(format!("Invalid piece character: {}", ch)),
                 };
 
@@ -97,6 +107,13 @@ impl Board {
             if file != 8 {
                 return Err(format!("Incomplete rank {} in FEN", 8 - rank_idx));
             }
+        }
+
+        if white_kings != 1 || black_kings != 1 {
+            return Err(format!(
+                "Invalid number of kings: white has {}, black has {}",
+                white_kings, black_kings
+            ));
         }
 
         board.white_turn = active_color == "w";
