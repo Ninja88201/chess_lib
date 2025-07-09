@@ -7,7 +7,7 @@ impl Board {
         }
 
         let mut moves = MoveList::new();
-        self.generate_legal_moves(self.white_turn, &mut moves);
+        self.generate_legal_moves(self.turn, &mut moves);
         let mut positions = 0;
 
         for &m in moves.iter() {
@@ -28,8 +28,7 @@ impl Board {
         }
 
         let mut moves = MoveList::new();
-        // self.generate_moves(self.white_turn, &mut moves);
-        self.generate_legal_moves(self.white_turn, &mut moves);
+        self.generate_legal_moves(self.turn, &mut moves);
         let mut positions = 0;
 
         for &m in moves.iter() {

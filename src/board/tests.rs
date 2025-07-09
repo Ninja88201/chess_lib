@@ -1,8 +1,8 @@
-use crate::{Piece, Board, Tile};
+use crate::{Board, Colour, Piece, Tile};
 
-fn empty_board_with(piece: Piece, tile: Tile, white: bool) -> Board {
+fn empty_board_with(piece: Piece, tile: Tile, colour: Colour) -> Board {
     let mut board = Board::new_empty();
-    let player = if white {
+    let player = if colour.white() {
         &mut board.white
     } else {
         &mut board.black
@@ -13,7 +13,7 @@ fn empty_board_with(piece: Piece, tile: Tile, white: bool) -> Board {
 
 #[test]
 fn knight_attacks() {
-    let board = empty_board_with(Piece::Knight, Tile::E4, true);
+    let board = empty_board_with(Piece::Knight, Tile::E4, Colour::White);
     let attacks = board.generate_attacks_from(Tile::E4);
 
     let expected = Tile::E4.knight_attacks();
@@ -25,25 +25,25 @@ fn knight_attacks() {
 
 #[test]
 fn pawn_attacks_white() {
-    let board = empty_board_with(Piece::Pawn, Tile::E4, true);
+    let board = empty_board_with(Piece::Pawn, Tile::E4, Colour::White);
     let attacks = board.generate_attacks_from(Tile::E4);
 
-    let expected = Tile::E4.pawn_attacks(true);
+    let expected = Tile::E4.pawn_attacks(Colour::White);
     assert_eq!(attacks, expected);
 }
 
 #[test]
 fn pawn_attacks_black() {
-    let board = empty_board_with(Piece::Pawn, Tile::E4, false);
+    let board = empty_board_with(Piece::Pawn, Tile::E4, Colour::Black);
     let attacks = board.generate_attacks_from(Tile::E4);
 
-    let expected = Tile::E4.pawn_attacks(false);
+    let expected = Tile::E4.pawn_attacks(Colour::Black);
     assert_eq!(attacks, expected);
 }
 
 #[test]
 fn king_attacks() {
-    let board = empty_board_with(Piece::King, Tile::A1, true);
+    let board = empty_board_with(Piece::King, Tile::A1, Colour::White);
     let attacks = board.generate_attacks_from(Tile::A1);
 
     let expected = Tile::A1.king_attacks();
@@ -70,7 +70,7 @@ fn mulitple_attacks() {
     board.white.place_piece(Piece::Knight, Tile::E4);
     board.white.place_piece(Piece::Bishop, Tile::C1);
 
-    let attacks = board.generate_attacks(true);
+    let attacks = board.generate_attacks(Colour::White);
 
     let expected =
         Tile::E4.knight_attacks() | board.generate_sliding_attacks(Tile::C1, false, true, None);
@@ -80,13 +80,15 @@ fn mulitple_attacks() {
 #[test]
 fn king_danger() {
     let mut board = Board::new_empty();
-    board.white.place_piece(Piece::Queen, Tile::D1);
-    board.white.place_piece(Piece::King, Tile::E1); // should be ignored
+    board.black.place_piece(Piece::Queen, Tile::E8);
+    board.white.place_piece(Piece::King, Tile::E2);
 
-    let attacks = board.generate_king_danger(false);
+    let attacks = board.generate_king_danger(Colour::White);
+
+    println!("Board: {}", board);
 
     assert!(
-        !attacks.get_bit(Tile::E1),
+        attacks.get_bit(Tile::E1),
         "King danger should not include friendly king tile"
     );
 }

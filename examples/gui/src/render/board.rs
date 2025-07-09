@@ -3,8 +3,8 @@ use chess_lib::{Board, Tile};
 use crate::{utils::{get_tile, tile_to_screen}, TILE_SIZE};
 
 pub fn render_board_squares(board: &Board, flipped: bool) {
-    let white_in_check = board.is_in_check(true);
-    let black_in_check = board.is_in_check(false);
+    let white_in_check = board.is_in_check(chess_lib::Colour::White);
+    let black_in_check = board.is_in_check(chess_lib::Colour::Black);
     
     let highlight = get_tile(mouse_position().into(), flipped);
     for file in 0..8 {

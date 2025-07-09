@@ -5,8 +5,7 @@ mod constants;
 mod tests;
 
 use crate::{
-    BETWEEN, BISHOP_ATTACKS, BISHOP_MAGICS, Bitboard, KING_ATTACKS, KNIGHT_ATTACKS,
-    ROOK_ATTACKS, ROOK_MAGICS, magics::magic_index,
+    magics::magic_index, Bitboard, Colour, BETWEEN, BISHOP_ATTACKS, BISHOP_MAGICS, KING_ATTACKS, KNIGHT_ATTACKS, ROOK_ATTACKS, ROOK_MAGICS
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -14,18 +13,26 @@ pub struct Tile(u8);
 
 impl Tile {
     // Constructors
+
+    /// Creates a new tile from a given index, 
+    /// returning None if the index is outside the board's range
     pub const fn new_index(index: u8) -> Option<Tile> {
         if index >= 64 {
             return None;
         }
         Some(Tile(index))
     }
+    /// Creates a new tile from a given x ( file ) & y ( rank ),
+    /// may fail if given out of range coordinates
     pub const fn new_xy(x: u8, y: u8) -> Option<Tile> {
         if x >= 8 || y >= 8 {
             return None;
         }
         Some(Tile((y * 8) + x))
     }
+
+    /// Creates a new tile from a string, expecting 2 characters.
+    /// Character 1 is the file & 2 is the rank
     pub fn from_str(s: &str) -> Option<Tile> {
         let mut chars = s.chars();
         let file = chars.next()?;
@@ -35,6 +42,7 @@ impl Tile {
         }
         Tile::new_chars(file, rank)
     }
+
     pub const fn new_chars(file_char: char, rank_char: char) -> Option<Tile> {
         let file = match file_char {
             'a'..='h' => (file_char as u8) - b'a',
@@ -54,6 +62,9 @@ impl Tile {
     pub fn to_u8(&self) -> u8 {
         self.0
     }
+    pub fn to_u32(&self) -> u32 {
+        self.0 as u32
+    }
     pub fn to_usize(&self) -> usize {
         self.0 as usize
     }
@@ -62,6 +73,7 @@ impl Tile {
     }
 
     // Getting others
+    /// (file, rank) or (x, y) using a1 is index 0
     pub fn get_coords(&self) -> (u8, u8) {
         (self.0 & 7, self.0 >> 3)
     }
@@ -75,32 +87,32 @@ impl Tile {
         let ny = y as i8 + dy;
         Tile::new_xy(nx as u8, ny as u8)
     }
-    pub fn forward(&self, white: bool) -> Option<Self> {
-        self.offset(0, if white { 1 } else { -1 })
+    pub fn forward(&self, colour: Colour) -> Option<Self> {
+        self.offset(0, if colour.white() { 1 } else { -1 })
     }
-    pub fn backward(&self, white: bool) -> Option<Self> {
-        self.offset(0, if white { -1 } else { 1 })
+    pub fn backward(&self, colour: Colour) -> Option<Self> {
+        self.offset(0, if colour.white() { -1 } else { 1 })
     }
-    pub fn left(&self, white: bool) -> Option<Self> {
-        self.offset(if white { -1 } else { 1 }, 0)
+    pub fn left(&self, colour: Colour) -> Option<Self> {
+        self.offset(if colour.white() { -1 } else { 1 }, 0)
     }
-    pub fn right(&self, white: bool) -> Option<Self> {
-        self.offset(if white { 1 } else { -1 }, 0)
+    pub fn right(&self, colour: Colour) -> Option<Self> {
+        self.offset(if colour.white() { 1 } else { -1 }, 0)
     }
 
     // Board rules
-    pub fn is_promotion(&self, white: bool) -> bool {
+    pub fn is_promotion(&self, colour: Colour) -> bool {
         let y = self.get_coords().1;
-        match white {
-            true => y == 7,
-            false => y == 0,
+        match colour {
+            Colour::White => y == 7,
+            Colour::Black => y == 0,
         }
     }
-    pub fn is_pawn_start(&self, white: bool) -> bool {
+    pub fn is_pawn_start(&self, colour: Colour) -> bool {
         let y = self.get_coords().1;
-        match white {
-            true => y == 1,
-            false => y == 6,
+        match colour {
+            Colour::White => y == 1,
+            Colour::Black => y == 6,
         }
     }
     pub fn is_light_square(&self) -> bool {
@@ -133,11 +145,11 @@ impl Tile {
         Bitboard::new(KING_ATTACKS[self.to_usize()])
     }
 
-    pub fn pawn_attacks(&self, white: bool) -> Bitboard {
+    pub fn pawn_attacks(&self, colour: Colour) -> Bitboard {
         let mask = self.to_mask();
-        match white {
-            true => ((mask << 7) & !Bitboard::FILE_H) | ((mask << 9) & !Bitboard::FILE_A),
-            false => ((mask >> 7) & !Bitboard::FILE_A) | ((mask >> 9) & !Bitboard::FILE_H),
+        match colour {
+            Colour::White => ((mask << 7) & !Bitboard::FILE_H) | ((mask << 9) & !Bitboard::FILE_A),
+            Colour::Black => ((mask >> 7) & !Bitboard::FILE_A) | ((mask >> 9) & !Bitboard::FILE_H),
         }
     }
     
@@ -147,10 +159,7 @@ impl Tile {
 }
 impl Display for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (x, y) = self.get_coords();
-        let file = (b'a' + x) as char;
-        let rank = (y + 1).to_string();
-        write!(f, "{}{}", file, rank)
+        write!(f, "{}", Tile::TILE_STRS[self.to_usize()])
     }
 }
 impl From<Tile> for usize {

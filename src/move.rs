@@ -1,5 +1,4 @@
 use crate::{CastlingRights, Piece, Tile};
-use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(transparent)]
@@ -89,15 +88,24 @@ impl Move {
         Tile::new_unchecked(((self.0 >> Self::TO_SHIFT) & 0x3F) as u8)
     }
     pub fn piece(&self) -> Piece {
-        unsafe { std::mem::transmute(((self.0 >> Self::PIECE_SHIFT) & 0xF) as u8) }
+        let v = self.0 >> Self::PIECE_SHIFT & 0xF;
+        Piece::from_index(v as usize)
     }
     pub fn capture(&self) -> Option<Piece> {
         let v = (self.0 >> Self::CAPTURE_SHIFT) & 0xF;
-        (v != 0).then(|| unsafe { std::mem::transmute((v - 1) as u8) })
+        if v == 0 {
+            return None
+        } else {
+            Some(Piece::from_index((v - 1) as usize))
+        }
     }
     pub fn promoted_to(&self) -> Option<Piece> {
         let v = (self.0 >> Self::PROMO_SHIFT) & 0xF;
-        (v != 0).then(|| unsafe { std::mem::transmute((v - 1) as u8) })
+        if v == 0 {
+            return None
+        } else {
+            Some(Piece::from_index((v - 1) as usize))
+        }
     }
     pub fn en_passant(&self) -> Option<Tile> {
         let v = (self.0 >> Self::EP_SHIFT) & 0x3F;

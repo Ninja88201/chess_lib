@@ -11,7 +11,7 @@ pub mod knight_attacks;
 
 pub mod between;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct MagicEntry {
     pub mask: u64,
     pub magic: u64,

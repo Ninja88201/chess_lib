@@ -37,7 +37,7 @@ impl Game {
         if is_key_pressed(KeyCode::Space) {
             let mut moves = chess_lib::MoveList::new();
             self.board
-                .generate_legal_moves(self.board.white_turn, &mut moves);
+                .generate_legal_moves(self.board.turn, &mut moves);
     
             if !moves.is_empty() {
                 let random_index = self.rand.gen_range(0, moves.len());
@@ -100,7 +100,7 @@ impl Game {
                 WHITE,
                 DrawTextureParams {
                     dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
-                    source: Some(get_piece_sprite_rect(p, self.board.white_turn)),
+                    source: Some(get_piece_sprite_rect(p, self.board.turn)),
                     ..Default::default()
                 },
             );

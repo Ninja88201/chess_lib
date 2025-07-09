@@ -49,30 +49,34 @@ impl Player {
 
     
     // Modifications
+    /// Attempts to remove any piece at a given tile, returning 
+    /// what type of piece was removed, if any
     pub fn remove_piece(&mut self, tile: Tile) -> Option<Piece> {
         for piece in Piece::ALL_PIECES {
-            if self.bb[piece as usize].get_bit(tile) {
-                self.bb[piece as usize].set_bit(tile, false);
-                self.pieces.set_bit(tile, false);
-                return Some(piece);
+            if self.remove_piece_type(piece, tile) {
+                return Some(piece)
             }
         }
         None
     }
-    pub fn remove_piece_type(&mut self, piece: Piece, tile: Tile) -> Option<Piece> {
+
+    /// Attempts to remove a specific piece type from a tile
+    /// returning whether or not a piece is removed
+    pub fn remove_piece_type(&mut self, piece: Piece, tile: Tile) -> bool {
         if self.bb[piece as usize].get_bit(tile) {
             self.bb[piece as usize].set_bit(tile, false);
             self.pieces.set_bit(tile, false);
-            return Some(piece);
+            return true;
         }
         
-        None
+        false
     }
     
     pub fn place_piece(&mut self, piece: Piece, tile: Tile) {
         self.bb[piece as usize].set_bit(tile, true);
         self.pieces.set_bit(tile, true);
     }
+
     pub fn move_piece(&mut self, from: Tile, to: Tile) {
         if let Some(p) = self.remove_piece(from) {
             self.place_piece(p, to);
@@ -80,14 +84,19 @@ impl Player {
     }
     
     // Accessors
+
+    /// Returns all occupied tiles, excluding the king
     pub fn attackers(&self) -> Bitboard {
         self.pieces & !self.bb[Piece::King as usize]
     }
+
+    /// Unsafely returns the king tile, assuming exactly 1 king
     pub fn king_tile(&self) -> Tile {
         self.bb[Piece::King as usize].to_bit().unwrap()
     }
+
     pub fn get_piece(&self, tile: Tile) -> Option<Piece> {
-        if (self.pieces & tile.to_mask()).none() {
+        if !self.pieces.get_bit(tile) {
             return None;
         }
         for i in 0..self.bb.len() {
@@ -96,26 +105,5 @@ impl Player {
             }
         }
         None
-    }
-    pub fn get_all_pieces(&self) -> Vec<(Piece, Tile)> {
-        let mut out = Vec::new();
-        for piece in Piece::ALL_PIECES {
-            for t in self.bb[piece as usize] {
-                out.push((piece, t));
-            }
-        }
-        out
-    }
-    pub fn get_all_attackers(&self) -> Vec<(Piece, Tile)> {
-        let mut out = Vec::new();
-        for piece in Piece::ALL_PIECES {
-            if piece == Piece::King {
-                continue;
-            }
-            for t in self.bb[piece as usize] {
-                out.push((piece, t));
-            }
-        }
-        out
     }
 }

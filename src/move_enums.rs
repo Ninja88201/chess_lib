@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::Tile;
+use crate::{Colour, Tile};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveError {
@@ -32,8 +32,8 @@ impl fmt::Display for MoveError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameState {
     Playing,
-    Checkmate(bool),
-    Stalemate(bool),
+    Checkmate(Colour),
+    Stalemate(Colour),
     InsufficientMaterial,
     FiftyMoveRule,
     ThreeRepetition,

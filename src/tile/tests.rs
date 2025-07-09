@@ -1,37 +1,37 @@
-use crate::Tile;
+use crate::{Colour, Tile};
 
 #[test]
 fn directions_white() {
     let center = Tile::new_xy(3, 3).unwrap();
-    assert_eq!(center.forward(true).unwrap().get_coords(), (3, 4));
-    assert_eq!(center.backward(true).unwrap().get_coords(), (3, 2));
-    assert_eq!(center.left(true).unwrap().get_coords(), (2, 3));
-    assert_eq!(center.right(true).unwrap().get_coords(), (4, 3));
+    assert_eq!(center.forward(Colour::White).unwrap().get_coords(), (3, 4));
+    assert_eq!(center.backward(Colour::White).unwrap().get_coords(), (3, 2));
+    assert_eq!(center.left(Colour::White).unwrap().get_coords(), (2, 3));
+    assert_eq!(center.right(Colour::White).unwrap().get_coords(), (4, 3));
 }
 
 #[test]
 fn directions_black() {
     let center = Tile::new_xy(3, 3).unwrap();
-    assert_eq!(center.forward(false).unwrap().get_coords(), (3, 2));
-    assert_eq!(center.backward(false).unwrap().get_coords(), (3, 4));
-    assert_eq!(center.left(false).unwrap().get_coords(), (4, 3));
-    assert_eq!(center.right(false).unwrap().get_coords(), (2, 3));
+    assert_eq!(center.forward(Colour::Black).unwrap().get_coords(), (3, 2));
+    assert_eq!(center.backward(Colour::Black).unwrap().get_coords(), (3, 4));
+    assert_eq!(center.left(Colour::Black).unwrap().get_coords(), (4, 3));
+    assert_eq!(center.right(Colour::Black).unwrap().get_coords(), (2, 3));
 }
 
 #[test]
 fn promotion_rows() {
     let white_promo = Tile::new_xy(4, 7).unwrap();
     let black_promo = Tile::new_xy(4, 0).unwrap();
-    assert!(white_promo.is_promotion(true));
-    assert!(black_promo.is_promotion(false));
+    assert!(white_promo.is_promotion(Colour::White));
+    assert!(black_promo.is_promotion(Colour::Black));
 }
 
 #[test]
 fn pawn_start_rows() {
     let white_start = Tile::new_xy(4, 1).unwrap();
     let black_start = Tile::new_xy(4, 6).unwrap();
-    assert!(white_start.is_pawn_start(true));
-    assert!(black_start.is_pawn_start(false));
+    assert!(white_start.is_pawn_start(Colour::White));
+    assert!(black_start.is_pawn_start(Colour::Black));
 }
 
 #[test]

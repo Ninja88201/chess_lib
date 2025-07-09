@@ -64,6 +64,15 @@ impl CastlingRights {
     pub fn to_u8(&self) -> u8 {
         self.0
     }
+    pub fn single_index(&self) -> usize {
+        match self.0 {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            8 => 3,
+            _ => panic!("CastlingRights::single_index only supports one right at a time"),
+        }
+    }
 }
 impl BitOr for CastlingRights {
     type Output = Self;

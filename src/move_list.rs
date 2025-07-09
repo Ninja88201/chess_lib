@@ -16,24 +16,20 @@ impl MoveList {
         }
     }
 
-    #[inline(always)]
     pub fn push(&mut self, m: Move) {
         debug_assert!(self.len < 256);
         self.moves[self.len] = m;
         self.len += 1;
     }
 
-    #[inline(always)]
     pub fn iter(&self) -> impl Iterator<Item = &Move> {
         self.moves[..self.len].iter()
     }
 
-    #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    #[inline(always)]
     pub fn len(&self) -> usize {
         self.len
     }

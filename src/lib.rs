@@ -13,7 +13,16 @@ pub use move_enums::GameState;
 pub use move_enums::MoveResult;
 pub mod castling;
 pub use castling::CastlingRights;
+pub mod history;
+pub use history::History;
 
+pub mod disambig;
+pub use disambig::Disambig;
+pub mod san_move;
+pub use san_move::SanMove;
+
+pub mod colour;
+pub use colour::Colour;
 pub mod piece;
 pub use piece::Piece;
 pub mod bitboard;
@@ -70,7 +79,7 @@ mod tests {
     }
     fn test_position(fen: &str, expected: i64, depth: usize) {
         let mut board = Board::new_from_fen(fen).unwrap();
-        let pos = board.positions_divide(depth);
+        let pos = board.positions(depth);
         assert_eq!(pos, expected);
     }
 }

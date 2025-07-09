@@ -52,6 +52,9 @@ impl Game {
             if is_key_down(KeyCode::Escape) {
                 return;
             }
+            if is_key_down(KeyCode::Y) {
+                self.board.positions(6);
+            }
 
             self.handle_input_keys();
             render_board(&self.piece_atlas, &self.board, self.selected_tile, self.flipped);
@@ -105,7 +108,7 @@ impl Game {
         match mov {
             Some(m) => {
                 let mut moves = MoveList::new();
-                self.board.generate_legal_moves(self.board.white_turn, &mut moves);
+                self.board.generate_legal_moves(self.board.turn, &mut moves);
                 if moves.contains(&m) {
                     self.board.make_move_unchecked(m);
                 }

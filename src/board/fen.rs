@@ -1,8 +1,9 @@
 use std::fmt;
 
-use crate::{Board, GameState, Move, MoveList, Piece, Tile};
+use crate::{Bitboard, Board, Disambig, GameState, Move, MoveList, Piece, SanMove, Tile};
 
 impl Board {
+    /// Converts the current board position into Forsyth–Edwards Notation
     pub fn to_fen(&self) -> String {
         let mut fen = String::with_capacity(100);
 
@@ -39,7 +40,7 @@ impl Board {
 
         // Active color
         fen.push(' ');
-        fen.push(if self.white_turn { 'w' } else { 'b' });
+        fen.push(if self.turn.white() { 'w' } else { 'b' });
 
         // Castling rights
         let castling = self.castling.to_fen();
@@ -61,20 +62,22 @@ impl Board {
 
         fen
     }
+
+    /// Converts the board into Portable Game Notation
     pub fn to_pgn(&self) -> String {
         let mut pgn = String::new();
 
-        for (i, (_, san)) in self.history.iter().enumerate() {
+        for (i, h) in self.history.iter().enumerate() {
             if i % 2 == 0 {
                 let move_number = i / 2 + 1;
                 pgn.push_str(&format!("{}. ", move_number));
             }
-            pgn.push_str(&format!("{} ", san));
+            pgn.push_str(&format!("{} ", h.san_string));
         }
 
         let state = self.get_state();
-        if let GameState::Checkmate(w) = state {
-            if w {
+        if let GameState::Checkmate(c) = state {
+            if c.white() {
                 pgn.push_str("0-1");
             } else {
                 pgn.push_str("1-0");
@@ -89,12 +92,14 @@ impl Board {
         }
         pgn
     }
+
+    /// Attempts to create an internal move from a string in Standard Algebraic Notation ( SAN )
     pub fn move_from_algebraic(&self, s: &str) -> Option<Move> {
         let s = s.trim();
 
         // Castling
         if s.eq_ignore_ascii_case("O-O") || s == "0-0" {
-            let (from, to) = if self.white_turn {
+            let (from, to) = if self.turn.white() {
                 (Tile::E1, Tile::G1)
             } else {
                 (Tile::E8, Tile::G8)
@@ -103,7 +108,7 @@ impl Board {
         }
 
         if s.eq_ignore_ascii_case("O-O-O") || s == "0-0-0" {
-            let (from, to) = if self.white_turn {
+            let (from, to) = if self.turn.white() {
                 (Tile::E1, Tile::C1)
             } else {
                 (Tile::E8, Tile::C8)
@@ -165,7 +170,7 @@ impl Board {
             None
         };
 
-        let (player, _) = self.get_players(self.white_turn);
+        let (player, _) = self.get_players(self.turn);
 
         // Filter matching pieces that can move to destination
         let mut candidates: Vec<Tile> = player.bb[piece as usize]
@@ -209,88 +214,77 @@ impl Board {
 
         Some(self.create_move(from, to, piece, captured, promotion))
     }
-    pub fn move_to_san(&self, mov: &Move) -> String {
+
+    /// Converts a move into Standard Algebraic Notation using the current board
+    /// position as context for disambiguation
+    pub fn move_to_san(&self, mov: &Move) -> SanMove {
         let piece = mov.piece();
         let from = mov.from();
         let to = mov.to();
-        let capture = mov.capture();
+        let capture = mov.capture().is_some();
         let promo = mov.promoted_to();
 
-        // Castling
-        if piece == Piece::King {
-            if (from == Tile::E1 && to == Tile::G1) || (from == Tile::E8 && to == Tile::G8) {
-                return "O-O".to_string();
-            } else if (from == Tile::E1 && to == Tile::C1) || (from == Tile::E8 && to == Tile::C8) {
-                return "O-O-O".to_string();
-            }
-        }
+        let (is_kingside_castle, is_queenside_castle) = match (from, to) {
+            (Tile::E1, Tile::G1) | (Tile::E8, Tile::G8) => (true, false),
+            (Tile::E1, Tile::C1) | (Tile::E8, Tile::C8) => (false, true),
+            _ => (false, false),
+        };
 
-        let mut s = String::new();
+        let disambig = self.get_disambig(mov);
 
-        // Piece character
-        if let Some(c) = piece.to_san_char() {
-            s.push(c);
-        }
-
-        // Disambiguation
-        if let Some(d) = self.get_disambig(mov) {
-            s.push_str(&d);
-        }
-
-        // Capture
-        if capture.is_some() {
-            if piece == Piece::Pawn {
-                let (from_file, _) = from.get_coords();
-                s.push((b'a' + from_file) as char);
-            }
-            s.push('x');
-        }
-
-        // Destination
-        s.push_str(&to.to_string());
-
-        // Promotion
-        if let Some(p) = promo {
-            s.push('=');
-            if let Some(pc) = p.to_san_char() {
-                s.push(pc);
-            }
-        }
-
-        s
+        SanMove::new(
+            piece, 
+            disambig, 
+            capture, 
+            to, 
+            promo, 
+            is_kingside_castle, 
+            is_queenside_castle, 
+            false, 
+            false
+        )
     }
-    pub fn get_disambig(&self, mov: &Move) -> Option<String> {
-        let piece = mov.piece();
-        if piece == Piece::Pawn || piece == Piece::King {
-            return None;
-        }
 
+    /// Returns a string representing the optional characters needed
+    /// to differentiate which piece is being moved
+    fn get_disambig(&self, mov: &Move) -> Option<Disambig> {
+        let piece = mov.piece();
         let from = mov.from();
         let to = mov.to();
         let (from_file, from_rank) = from.get_coords();
 
+        // Skip disambig for kings (can never have ambiguous destination)
+        if piece == Piece::King {
+            return None;
+        }
+        
+        if piece == Piece::Pawn {
+            if mov.capture().is_none() {
+                return None;
+            } else {
+                return Some(Disambig::File(from_file))
+            }
+        }
         let (player, _) = self.current_players();
+        let pinned = self.get_pinned_mask(self.turn);
 
-        let candidates: Vec<_> = player.bb[piece as usize]
-            .iter()
-            .filter(|&t| {
-                if t == from {
-                    return false;
-                }
-                let mut moves = MoveList::new();
-                self.generate_legal_moves_from(t, &mut moves);
-                moves.contains_move(t, to)
-            })
-            .collect();
+        // Find other same-piece attackers (excluding the current one)
+        let attackers = self.get_attackers_to(to, piece, self.turn)
+            & player.bb[piece as usize]
+            & !pinned
+            & !Bitboard::from_tile(from);
 
-        if candidates.is_empty() {
+        if attackers.is_empty() {
             return None;
         }
 
+        // For pawns, only disambiguate in the case of a capture
+
+        // Disambiguation logic for other pieces (knights, rooks, etc.)
         let mut same_file = false;
         let mut same_rank = false;
 
-        for t in &candidates {
+        for t in attackers {
             let (f, r) = t.get_coords();
             if f == from_file {
                 same_file = true;
@@ -300,17 +294,13 @@ impl Board {
             }
         }
 
-        let mut result = String::new();
-        if !same_file {
-            result.push((b'a' + from_file as u8) as char);
+        Some(if !same_file {
+            Disambig::File(from_file)
         } else if !same_rank {
-            result.push((b'1' + from_rank as u8) as char);
+            Disambig::Rank(from_rank)
         } else {
-            result.push((b'a' + from_file as u8) as char);
-            result.push((b'1' + from_rank as u8) as char);
-        }
-
-        Some(result)
+            Disambig::FileRank(from)
+        })
     }
 
 }

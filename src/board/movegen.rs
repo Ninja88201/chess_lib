@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 
-use crate::{Bitboard, Board, CastlingRights, MoveList, Piece, Tile};
+use crate::{Bitboard, Board, CastlingRights, Colour, MoveList, Piece, Tile};
 
 impl Board {
-    pub fn generate_legal_moves(&self, white: bool, moves: &mut MoveList) {
-        let (player, _) = self.get_players(white);
-        let checkers = self.get_checkers(white);
+    /// Generates all the legal moves for a colour in the current board position
+    pub fn generate_legal_moves(&self, colour: Colour, moves: &mut MoveList) {
+        let (player, _) = self.get_players(colour);
+        let checkers = self.get_checkers(colour);
         let checkers_count = checkers.count_ones();
 
         let king_tile = player.king_tile();
 
-        self.generate_king_moves(king_tile, white, moves);
+        self.generate_king_moves(king_tile, colour, moves);
 
         // Double check ( King moves only )
         if checkers_count > 1 {
@@ -32,13 +33,13 @@ impl Board {
             Bitboard::ALL
         };
 
-        let pinned = self.get_pinned_pieces(white);
+        let pinned = self.get_pinned_pieces(colour);
 
         // Pawns
         for pawn_tile in player.bb[Piece::Pawn as usize] {
             let pin_mask = pinned.get(&pawn_tile).copied().unwrap_or(Bitboard::ALL);
             let move_mask = pin_mask & targets;
-            self.generate_pawn_moves(pawn_tile, white, Some(move_mask), moves);
+            self.generate_pawn_moves(pawn_tile, colour, Some(move_mask), moves);
         }
 
         // Knights
@@ -46,47 +47,48 @@ impl Board {
             if pinned.contains_key(&knight_tile) {
                 continue;
             }
-            self.generate_knight_moves(knight_tile, white, Some(targets), moves);
+            self.generate_knight_moves(knight_tile, colour, Some(targets), moves);
         }
 
         // Bishops
         for bishop_tile in player.bb[Piece::Bishop as usize] {
             let pin_mask = pinned.get(&bishop_tile).copied().unwrap_or(Bitboard::ALL);
             let move_mask = pin_mask & targets;
-            self.generate_sliding_moves(bishop_tile, white, false, true, Some(move_mask), moves);
+            self.generate_sliding_moves(bishop_tile, colour, false, true, Some(move_mask), moves);
         }
 
         // Rooks
         for rook_tile in player.bb[Piece::Rook as usize] {
             let pin_mask = pinned.get(&rook_tile).copied().unwrap_or(Bitboard::ALL);
             let move_mask = pin_mask & targets;
-            self.generate_sliding_moves(rook_tile, white, true, false, Some(move_mask), moves);
+            self.generate_sliding_moves(rook_tile, colour, true, false, Some(move_mask), moves);
         }
 
         // Queens
         for queen_tile in player.bb[Piece::Queen as usize] {
             let pin_mask = pinned.get(&queen_tile).copied().unwrap_or(Bitboard::ALL);
             let move_mask = pin_mask & targets;
-            self.generate_sliding_moves(queen_tile, white, true, true, Some(move_mask), moves);
+            self.generate_sliding_moves(queen_tile, colour, true, true, Some(move_mask), moves);
         }
     }
 
 
+    /// Generates all the legal moves for a given piece at a tile
     pub fn generate_legal_moves_from(&self, tile: Tile, moves: &mut MoveList) {
-        let (piece, white) = match self.get_piece_at_tile(tile) {
+        let (piece, colour) = match self.get_piece_at_tile(tile) {
             Some(p) => p,
             _ => return,
         };
 
-        let (player, _) = self.get_players(white);
-        let checkers = self.get_checkers(white);
+        let (player, _) = self.get_players(colour);
+        let checkers = self.get_checkers(colour);
         let checkers_count = checkers.count_ones();
 
         if checkers_count > 1 && piece != Piece::King {
             return;
         }
 
-        let pinned = self.get_pinned_pieces(white);
+        let pinned = self.get_pinned_pieces(colour);
 
         let check_targets = if checkers_count == 1 {
             if let Some(checker_pos) = checkers.to_bit() {
@@ -106,37 +108,40 @@ impl Board {
         let mask = combine_masks(pinned.get(&tile).copied(), check_targets);
 
         match piece {
-            Piece::Pawn => self.generate_pawn_moves(tile, white, mask, moves),
+            Piece::Pawn => self.generate_pawn_moves(tile, colour, mask, moves),
             Piece::Knight => {
                 if pinned.contains_key(&tile) {
                     return;
                 }
-                self.generate_knight_moves(tile, white, mask, moves);
+                self.generate_knight_moves(tile, colour, mask, moves);
             }
-            Piece::Bishop => self.generate_sliding_moves(tile, white, false, true, mask, moves),
-            Piece::Rook => self.generate_sliding_moves(tile, white, true, false, mask, moves),
-            Piece::Queen => self.generate_sliding_moves(tile, white, true, true, mask, moves),
-            Piece::King => self.generate_king_moves(tile, white, moves),
+            Piece::Bishop => self.generate_sliding_moves(tile, colour, false, true, mask, moves),
+            Piece::Rook => self.generate_sliding_moves(tile, colour, true, false, mask, moves),
+            Piece::Queen => self.generate_sliding_moves(tile, colour, true, true, mask, moves),
+            Piece::King => self.generate_king_moves(tile, colour, moves),
         }
     }
+
+    /// Generates pseudo legal moves for a piece on a given tile
     pub fn generate_psuedo_moves_from(&self, tile: Tile, moves: &mut MoveList) {
         match self.get_piece_at_tile(tile) {
             Some((p, _)) => {
                 match p {
-                    Piece::Pawn => self.generate_pawn_moves(tile, self.white_turn, None, moves),
-                    Piece::Knight => self.generate_knight_moves(tile, self.white_turn, None, moves),
-                    Piece::Bishop => self.generate_sliding_moves(tile, self.white_turn, false, true, None, moves),
-                    Piece::Rook => self.generate_sliding_moves(tile, self.white_turn, true, false, None, moves),
-                    Piece::Queen => self.generate_sliding_moves(tile, self.white_turn, true, true, None, moves),
-                    Piece::King => self.generate_king_moves(tile, self.white_turn, moves),
+                    Piece::Pawn => self.generate_pawn_moves(tile, self.turn, None, moves),
+                    Piece::Knight => self.generate_knight_moves(tile, self.turn, None, moves),
+                    Piece::Bishop => self.generate_sliding_moves(tile, self.turn, false, true, None, moves),
+                    Piece::Rook => self.generate_sliding_moves(tile, self.turn, true, false, None, moves),
+                    Piece::Queen => self.generate_sliding_moves(tile, self.turn, true, true, None, moves),
+                    Piece::King => self.generate_king_moves(tile, self.turn, moves),
                 }
             },
             None => return,
         }
     }
 
-    fn get_checkers(&self, white: bool) -> Bitboard {
-        let (player, attacker) = self.get_players(white);
+    /// Returns a bitboard representing all the tiles that attack the given colours king
+    fn get_checkers(&self, colour: Colour) -> Bitboard {
+        let (player, attacker) = self.get_players(colour);
         let occ = self.occupied();
         let mut checkers = Bitboard::EMPTY;
         let kt = player.king_tile();
@@ -144,7 +149,7 @@ impl Board {
         let straight_mask = kt.rook_attacks(occ);
         let diag_mask = kt.bishop_attacks(occ);
         let knight_mask = kt.knight_attacks();
-        let pawn_mask = kt.pawn_attacks(white);
+        let pawn_mask = kt.pawn_attacks(colour);
 
         checkers |= attacker.bb[Piece::Rook as usize] & straight_mask;
         checkers |= attacker.bb[Piece::Bishop as usize] & diag_mask;
@@ -154,86 +159,121 @@ impl Board {
 
         checkers
     }
-    fn get_pinned_pieces(&self, white: bool) -> HashMap<Tile, Bitboard> {
+    /// Returns a bitboard representing what pieces can see the given tile
+    pub fn get_attackers_to(&self, target: Tile, piece: Piece, colour: Colour) -> Bitboard {
+        let (player, _) = self.get_players(colour);
+        let occ = self.occupied();
+        let mut attackers = Bitboard::EMPTY;
+
+        let straight_mask = target.rook_attacks(occ);
+        let diag_mask = target.bishop_attacks(occ);
+        let knight_mask = target.knight_attacks();
+        let pawn_mask = target.pawn_attacks(colour);
+
+        match piece {
+            Piece::Pawn => attackers |= player.bb[Piece::Pawn as usize] & pawn_mask,
+            Piece::Knight => attackers |= player.bb[Piece::Knight as usize] & knight_mask,
+            Piece::Bishop =>attackers |= player.bb[Piece::Bishop as usize] & diag_mask,
+            Piece::Rook => attackers |= player.bb[Piece::Rook as usize] & straight_mask,
+            Piece::Queen => attackers |= player.bb[Piece::Queen as usize] & (diag_mask | straight_mask),
+            Piece::King => (),
+        }
+
+        attackers
+    }
+    /// Returns any tiles that are pinned to the king & a corresponding bitboard
+    /// representing the tiles that piece can move to 
+    fn get_pinned_pieces(&self, colour: Colour) -> HashMap<Tile, Bitboard> {
         use crate::Piece::{Bishop, Queen, Rook};
         let mut pins = HashMap::new();
 
-        let (player, _) = self.get_players(white);
-        let kt = player.king_tile();
-        let occ = self.occupied();
+        let (player, opponent) = self.get_players(colour);
+        let king_tile = player.king_tile();
+        let occ = opponent.pieces;
 
-        let directions: [(i8, i8); 8] = [
-            (0, 1),
-            (1, 0),
-            (0, -1),
-            (-1, 0),
-            (1, 1),
-            (1, -1),
-            (-1, -1),
-            (-1, 1),
-        ];
+        let rook_attackers = opponent.bb[Rook as usize] | opponent.bb[Queen as usize];
+        let bishop_attackers = opponent.bb[Bishop as usize] | opponent.bb[Queen as usize];
 
-        for (dx, dy) in directions {
-            let mut current = kt;
-            let mut maybe_pinned: Option<Tile> = None;
+        let rook_sliders = king_tile.rook_attacks(occ) & rook_attackers;
+        let bishop_sliders = king_tile.bishop_attacks(occ) & bishop_attackers;
 
-            while let Some(next) = current.offset(dx, dy) {
-                current = next;
+        for pinner in rook_sliders {
+            let between = king_tile.get_between(pinner);
+            let blockers = between & player.pieces;
 
-                if !occ.get_bit(current) {
-                    continue;
-                }
+            if blockers.count_ones() == 1 {
+                let pinned = blockers.to_bit().unwrap();
+                pins.insert(pinned, between | pinner.to_mask());
+            }
+        }
 
-                if player.pieces.get_bit(current) {
-                    if maybe_pinned.is_none() {
-                        maybe_pinned = Some(current);
-                    } else {
-                        // Second friendly piece => No pin
-                        break;
-                    }
-                } else {
-                    if let Some(pinned_tile) = maybe_pinned {
-                        if let Some((ptype, _)) = self.get_piece_at_tile(current) {
-                            let is_diag = dx.abs() == dy.abs();
-                            let is_straight = dx == 0 || dy == 0;
+        for pinner in bishop_sliders {
+            let between = king_tile.get_between(pinner);
+            let blockers = between & player.pieces;
 
-                            if ptype == Queen
-                                || (ptype == Rook && is_straight)
-                                || (ptype == Bishop && is_diag)
-                            {
-                                pins.insert(
-                                    pinned_tile,
-                                    kt.get_between(current) | current.to_mask(),
-                                );
-                            }
-                        }
-                    }
-                    break;
-                }
+            if blockers.count_ones() == 1 {
+                let pinned = blockers.to_bit().unwrap();
+                pins.insert(pinned, between | pinner.to_mask());
+            }
+        }
+
+        pins
+    }
+    /// Returns a bitboard representing all pinned pieces
+    pub fn get_pinned_mask(&self, colour: Colour) -> Bitboard {
+        use crate::Piece::{Bishop, Queen, Rook};
+        let mut pins = Bitboard::EMPTY;
+
+        let (player, opponent) = self.get_players(colour);
+        let king_tile = player.king_tile();
+        let occ = opponent.pieces;
+
+        let rook_attackers = opponent.bb[Rook as usize] | opponent.bb[Queen as usize];
+        let bishop_attackers = opponent.bb[Bishop as usize] | opponent.bb[Queen as usize];
+
+        let rook_sliders = king_tile.rook_attacks(occ) & rook_attackers;
+        let bishop_sliders = king_tile.bishop_attacks(occ) & bishop_attackers;
+
+        for pinner in rook_sliders {
+            let between = king_tile.get_between(pinner);
+            let blockers = between & player.pieces;
+
+            if blockers.count_ones() == 1 {
+                pins.set_bit(pinner, true);
+            }
+        }
+
+        for pinner in bishop_sliders {
+            let between = king_tile.get_between(pinner);
+            let blockers = between & player.pieces;
+
+            if blockers.count_ones() == 1 {
+                pins.set_bit(pinner, true);
             }
         }
 
         pins
     }
 
+    /// Adds the valid pawn moves for a given tile
     pub fn generate_pawn_moves(
         &self,
         tile: Tile,
-        white: bool,
+        colour: Colour,
         targets: Option<Bitboard>,
         moves: &mut MoveList,
     ) {
         // Single forward
-        if let Some(one_step) = tile.forward(white) {
+        if let Some(one_step) = tile.forward(colour) {
             if self.occupied().get_bit(one_step) {
             } else {
                 if targets.map_or(true, |mask| mask.get_bit(one_step)) {
-                    self.try_push_pawn_move(tile, one_step, white, None, moves);
+                    self.try_push_pawn_move(tile, one_step, colour, None, moves);
                 }
 
                 // Double forward
-                if tile.is_pawn_start(white) {
-                    if let Some(two_step) = one_step.forward(white) {
+                if tile.is_pawn_start(colour) {
+                    if let Some(two_step) = one_step.forward(colour) {
                         if self.occupied().get_bit(two_step) {
                         } else if targets.map_or(true, |mask| mask.get_bit(two_step)) {
                             moves.push(self.create_move(tile, two_step, Piece::Pawn, None, None));
@@ -244,8 +284,8 @@ impl Board {
         }
 
         for maybe_target in [
-            tile.left(white).and_then(|t| t.forward(white)),
-            tile.right(white).and_then(|t| t.forward(white)),
+            tile.left(colour).and_then(|t| t.forward(colour)),
+            tile.right(colour).and_then(|t| t.forward(colour)),
         ] {
             let to = match maybe_target {
                 Some(t) => t,
@@ -253,14 +293,14 @@ impl Board {
             };
 
             // En passant capture check
-            if Some(to) == self.en_passant && targets.map_or(true, |mask| mask.get_bit(to.backward(white).unwrap())) {
-                let king_tile = if white {
+            if Some(to) == self.en_passant && targets.map_or(true, |mask| mask.get_bit(to.backward(colour).unwrap())) {
+                let king_tile = if colour.white() {
                     self.white.bb[Piece::King as usize].to_bit().unwrap()
                 } else {
                     self.black.bb[Piece::King as usize].to_bit().unwrap()
                 };
                 let occupied = self.occupied();
-                let (_, opponent) = self.get_players(white);
+                let (_, opponent) = self.get_players(colour);
                 let enemy_sliders = opponent.bb[Piece::Rook as usize] | opponent.bb[Piece::Queen as usize];
 
                 if !Self::is_illegal_en_passant_discovery(tile, to, king_tile, occupied, enemy_sliders) {
@@ -270,13 +310,16 @@ impl Board {
             }
 
             // Normal capture
-            if !self.is_square_occupied_by_enemy(to, white) || !targets.map_or(true, |mask| mask.get_bit(to)) {
+            if !self.is_square_occupied_by_enemy(to, colour) || !targets.map_or(true, |mask| mask.get_bit(to)) {
                 continue;
             }
             let captured = self.get_piece_at_tile(to).map(|(p, _)| p);
-            self.try_push_pawn_move(tile, to, white, captured, moves);
+            self.try_push_pawn_move(tile, to, colour, captured, moves);
         }
     }
+
+    /// Returns whether an en passant will result in an illegal position or not
+    /// e.g. exposed check due to illegal movement or an illegal capture
     pub fn is_illegal_en_passant_discovery(
         capturing_pawn_tile: Tile,
         ep_target_tile: Tile,
@@ -327,16 +370,16 @@ impl Board {
         false
     }
 
-    #[inline]
+    /// Adds the appropriate promotion moves if the resulting move ladns on a promotion tile
     fn try_push_pawn_move(
         &self,
         from: Tile,
         to: Tile,
-        white: bool,
+        colour: Colour,
         capture: Option<Piece>,
         moves: &mut MoveList,
     ) {
-        if to.is_promotion(white) {
+        if to.is_promotion(colour) {
             for promo in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
                 moves.push(self.create_move(from, to, Piece::Pawn, capture, Some(promo)));
             }
@@ -345,11 +388,11 @@ impl Board {
         }
     }
 
-    #[inline]
+    /// Adds the available knight moves for a given tile
     fn generate_knight_moves(
         &self,
         tile: Tile,
-        white: bool,
+        colour: Colour,
         targets: Option<Bitboard>,
         moves: &mut MoveList,
     ) {
@@ -357,7 +400,7 @@ impl Board {
         if let Some(mask) = targets {
             attacks &= mask;
         }
-        let friendly_mask = if white {
+        let friendly_mask = if colour.white() {
             self.white.pieces
         } else {
             self.black.pieces
@@ -375,11 +418,11 @@ impl Board {
         }
     }
 
-    #[inline]
+    /// Adds the diagonal and/or orthogonal moves for a given tile
     fn generate_sliding_moves(
         &self,
         tile: Tile,
-        white: bool,
+        colour: Colour,
         straight: bool,
         diagonal: bool,
         targets: Option<Bitboard>,
@@ -389,7 +432,7 @@ impl Board {
         if let Some(mask) = targets {
             attacks &= mask;
         }
-        let friendly_mask = if white {
+        let friendly_mask = if colour.white() {
             self.white.pieces
         } else {
             self.black.pieces
@@ -408,15 +451,15 @@ impl Board {
         }
     }
 
-    #[inline]
-    fn generate_king_moves(&self, tile: Tile, white: bool, moves: &mut MoveList) {
+    /// Adds the llegal king moves for a given tile
+    fn generate_king_moves(&self, tile: Tile, colour: Colour, moves: &mut MoveList) {
         let mut attacks = tile.king_attacks();
-        let friendly_mask = if white {
+        let friendly_mask = if colour.white() {
             self.white.pieces
         } else {
             self.black.pieces
         };
-        let attack_mask = self.generate_king_danger(!white);
+        let attack_mask = self.generate_king_danger(colour);
 
         attacks &= !friendly_mask & !attack_mask;
 
@@ -438,7 +481,7 @@ impl Board {
         let occupied = self.occupied();
 
 
-        if white {
+        if colour.white() {
             if castling_rights.contains(CastlingRights::WHITE_KINGSIDE)
                 && (occupied & (Tile::F1.to_mask() | Tile::G1.to_mask())).none()
                 && (attack_mask & (Tile::F1.to_mask() | Tile::G1.to_mask())).none()
@@ -471,9 +514,8 @@ impl Board {
         }
     }
 
-    #[inline]
-    fn is_square_occupied_by_enemy(&self, square: Tile, white: bool) -> bool {
-        let (_, opponent) = self.get_players(white);
+    fn is_square_occupied_by_enemy(&self, square: Tile, colour: Colour) -> bool {
+        let (_, opponent) = self.get_players(colour);
         opponent.pieces.get_bit(square)
     }
 }

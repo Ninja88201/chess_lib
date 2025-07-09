@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use crate::{Board, CastlingRights, Piece, Player, Tile};
+use crate::{Board, CastlingRights, Colour, Piece, Player, Tile};
 
 impl Board {
     pub fn new() -> Self {
@@ -9,7 +9,9 @@ impl Board {
             black: Player::new_black(),
             castling: CastlingRights::ALL,
 
-            white_turn: true,
+            zobrist_hash: 959651669566009507,
+
+            turn: Colour::White,
             history: Vec::new(),
             repetition_history: Vec::new(),
             en_passant: None,
@@ -27,7 +29,9 @@ impl Board {
             black: Player::new_empty(),
             castling: CastlingRights::NONE,
 
-            white_turn: true,
+            zobrist_hash: 0,
+
+            turn: Colour::White,
             history: Vec::new(),
             repetition_history: Vec::new(),
             en_passant: None,
@@ -116,7 +120,7 @@ impl Board {
             ));
         }
 
-        board.white_turn = active_color == "w";
+        board.turn = Colour::new(active_color == "w");
         board.castling = CastlingRights::from_fen(castling_rights);
 
         board.en_passant = if en_passant != "-" {

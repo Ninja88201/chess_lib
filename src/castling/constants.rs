@@ -8,4 +8,11 @@ impl CastlingRights
     pub const BLACK_KINGSIDE: CastlingRights = CastlingRights::new(0b0100);
     pub const BLACK_QUEENSIDE: CastlingRights = CastlingRights::new(0b1000);
     pub const ALL: CastlingRights = CastlingRights::new(0b1111);
+
+    pub const ALL_RIGHTS: [CastlingRights; 4] = [
+        CastlingRights::WHITE_KINGSIDE,
+        CastlingRights::WHITE_QUEENSIDE,
+        CastlingRights::BLACK_KINGSIDE,
+        CastlingRights::BLACK_QUEENSIDE,
+    ];
 }

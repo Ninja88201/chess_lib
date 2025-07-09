@@ -15,18 +15,20 @@ mod tests;
 
 use std::cell::Cell;
 
-use crate::{CastlingRights, Move, Player, Tile};
+use crate::{CastlingRights, Colour, History, Player, Tile};
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Board {
     pub white: Player,
     pub black: Player,
     pub castling: CastlingRights,
 
-    pub white_turn: bool,
+    pub turn: Colour,
     pub en_passant: Option<Tile>,
 
-    // Store move & its S.A.N string while we have context 
-    pub history: Vec<(Move, String)>,
+    pub zobrist_hash: u64,
+
+    // Store move & its S.A.N string & zobrist hash while we have context 
+    pub history: Vec<History>,
     repetition_history: Vec<u64>,
 
     pub half_moves: u8,

@@ -1,6 +1,9 @@
-use crate::{MoveResult, Board, CastlingRights, Move, MoveError, MoveList, Piece, Tile};
+use crate::{zobrist::consts::{CASTLING, EN_PASSANT, PIECE_SQUARE, SIDE_TO_MOVE}, Board, CastlingRights, Colour, History, Move, MoveError, MoveList, MoveResult, Piece, Tile};
 
 impl Board {
+    /// Attempts to create & make an internal move given the starting & ending tile
+    /// returning whether the move is applied or needs further attention to select
+    /// the promotion piece when necessary
     pub fn try_move_piece(
         &mut self,
         from: Tile,
@@ -22,22 +25,22 @@ impl Board {
             return Err(MoveError::SameTile);
         }
         
-        if self.is_checkmate(self.white_turn) {
+        if self.is_in_checkmate(self.turn) {
             return Err(MoveError::Checkmate);
         }
-        if self.is_stalemate(self.white_turn) {
+        if self.is_stalemate(self.turn) {
             return Err(MoveError::Stalemate);
         }
         
         let result = self.get_piece_at_tile(from);
         if let Some((p, w)) = result {
-            if w != self.white_turn {
+            if w != self.turn {
                 return Err(MoveError::WrongTurn);
             }
             
             let capture = match self.get_piece_at_tile(to) {
                 Some((p, w)) => {
-                    if w == self.white_turn {
+                    if w == self.turn {
                         return Err(MoveError::FriendlyCapture);
                     }
                     Some(p)
@@ -56,7 +59,7 @@ impl Board {
             };
 
             let mut promote = promotion;
-            if p == Piece::Pawn && to.is_promotion(self.white_turn) && promotion.is_none() {
+            if p == Piece::Pawn && to.is_promotion(self.turn) && promotion.is_none() {
                 promote = Some(Piece::Queen);
             }
             let mov = self.create_move(from, to, p, capture, promote);
@@ -78,108 +81,170 @@ impl Board {
             return Err(MoveError::NoPieceSelected);
         }
     }
+
+    /// Attempts to make a move not checking for llegality
     pub fn make_move_unchecked(&mut self, mov: Move) {
+        let hash = self.zobrist_hash;
         let mut san = self.move_to_san(&mov);
-        let (player, opponent) = if self.white_turn {
+        // let mut san = "".to_string();
+
+        // Toggle side to move
+        self.zobrist_hash ^= SIDE_TO_MOVE;
+
+        let (player, opponent) = if self.turn.white() {
             (&mut self.white, &mut self.black)
         } else {
             self.full_move += 1;
             (&mut self.black, &mut self.white)
         };
+
         self.half_moves += 1;
 
-        if mov.piece() == Piece::Pawn
-        {
+        // Remove en passant hash if present
+        if let Some(tile) = self.en_passant {
+            let (file, _) = tile.get_coords();
+            self.zobrist_hash ^= EN_PASSANT[file as usize];
+        }
+        self.en_passant = None;
+
+        // Handle pawn move or capture (reset half-move clock)
+        if mov.piece() == Piece::Pawn {
             self.half_moves = 0;
         }
         if let Some(p) = mov.capture() {
             self.half_moves = 0;
+
             let target_tile = if mov.en_passant() == Some(mov.to()) {
-                mov.to().backward(self.white_turn).unwrap()
+                mov.to().backward(self.turn).unwrap()
             } else {
                 mov.to()
             };
-            opponent.remove_piece_type(p, target_tile);
 
+            opponent.remove_piece_type(p, target_tile);
+            self.zobrist_hash ^= PIECE_SQUARE[p.to_zobrist_index(!self.turn)][target_tile.to_usize()];
+
+            // Remove opponent's castling rights if rook is captured
             if p == Piece::Rook {
                 let rights = match mov.to() {
                     Tile::A1 => CastlingRights::WHITE_QUEENSIDE,
                     Tile::H1 => CastlingRights::WHITE_KINGSIDE,
-
                     Tile::A8 => CastlingRights::BLACK_QUEENSIDE,
                     Tile::H8 => CastlingRights::BLACK_KINGSIDE,
                     _ => CastlingRights::NONE,
                 };
-                self.castling.remove(rights);
+                if self.castling.contains(rights) {
+                    self.zobrist_hash ^= CASTLING[rights.single_index()];
+                    self.castling.remove(rights);
+                }
             }
         }
 
+        // Zobrist: remove piece from 'from'
+        self.zobrist_hash ^= PIECE_SQUARE[mov.piece().to_zobrist_index(self.turn)][mov.from().to_usize()];
+        // Move piece
         player.move_piece(mov.from(), mov.to());
-        self.en_passant = None;
+        // Zobrist: add piece to 'to'
+        self.zobrist_hash ^= PIECE_SQUARE[mov.piece().to_zobrist_index(self.turn)][mov.to().to_usize()];
 
-        if let Some(p) = mov.promoted_to() {
+        // Handle promotion
+        if let Some(promo) = mov.promoted_to() {
             player.remove_piece(mov.to());
-            player.place_piece(p, mov.to());
+            self.zobrist_hash ^= PIECE_SQUARE[mov.piece().to_zobrist_index(self.turn)][mov.to().to_usize()];
+
+            player.place_piece(promo, mov.to());
+            self.zobrist_hash ^= PIECE_SQUARE[promo.to_zobrist_index(self.turn)][mov.to().to_usize()];
         }
 
+        // Handle king move + castling
         if mov.piece() == Piece::King {
-            let rights = match self.white_turn {
-                true => CastlingRights::WHITE_KINGSIDE | CastlingRights::WHITE_QUEENSIDE,
-                false => CastlingRights::BLACK_KINGSIDE | CastlingRights::BLACK_QUEENSIDE,
+            let affected_rights = match self.turn {
+                Colour::White => CastlingRights::WHITE_KINGSIDE | CastlingRights::WHITE_QUEENSIDE,
+                Colour::Black => CastlingRights::BLACK_KINGSIDE | CastlingRights::BLACK_QUEENSIDE,
             };
-            self.castling.remove(rights);
-            match (self.white_turn, mov.from(), mov.to()) {
-                (true, Tile::E1, Tile::G1) => {
+
+            for right in CastlingRights::ALL_RIGHTS {
+                if affected_rights.contains(right) && self.castling.contains(right) {
+                    self.zobrist_hash ^= CASTLING[right.single_index()];
+                    self.castling.remove(right);
+                }
+            }
+
+            match (self.turn, mov.from(), mov.to()) {
+                (Colour::White, Tile::E1, Tile::G1) => {
                     player.move_piece(Tile::H1, Tile::F1);
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::H1.to_usize()];
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::F1.to_usize()];
                 }
-                (true, Tile::E1, Tile::C1) => {
+                (Colour::White, Tile::E1, Tile::C1) => {
                     player.move_piece(Tile::A1, Tile::D1);
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::A1.to_usize()];
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::D1.to_usize()];
                 }
-                (false, Tile::E8, Tile::G8) => {
+                (Colour::Black, Tile::E8, Tile::G8) => {
                     player.move_piece(Tile::H8, Tile::F8);
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::H8.to_usize()];
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::F8.to_usize()];
                 }
-                (false, Tile::E8, Tile::C8) => {
+                (Colour::Black, Tile::E8, Tile::C8) => {
                     player.move_piece(Tile::A8, Tile::D8);
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::A8.to_usize()];
+                    self.zobrist_hash ^= PIECE_SQUARE[Piece::Rook.to_zobrist_index(self.turn)][Tile::D8.to_usize()];
                 }
                 _ => {}
             }
         }
+
+        // Rook moved — remove castling rights
         if mov.piece() == Piece::Rook {
             let rights = match mov.from() {
                 Tile::A1 => CastlingRights::WHITE_QUEENSIDE,
                 Tile::H1 => CastlingRights::WHITE_KINGSIDE,
-
                 Tile::A8 => CastlingRights::BLACK_QUEENSIDE,
                 Tile::H8 => CastlingRights::BLACK_KINGSIDE,
                 _ => CastlingRights::NONE,
             };
-            self.castling.remove(rights);
+            if self.castling.contains(rights) {
+                self.zobrist_hash ^= CASTLING[rights.single_index()];
+                self.castling.remove(rights);
+            }
         }
+
+        // Handle en passant square creation
         if mov.piece() == Piece::Pawn
-            && (mov.from().get_coords().0 == mov.to().get_coords().0)
+            && mov.from().get_coords().0 == mov.to().get_coords().0
             && (i8::abs(mov.from().get_coords().1 as i8 - mov.to().get_coords().1 as i8) == 2)
         {
-            self.en_passant = Some(mov.to().backward(self.white_turn).unwrap());
+            let ep_tile = mov.to().backward(self.turn).unwrap();
+            let (file, _) = ep_tile.get_coords();
+            self.en_passant = Some(ep_tile);
+            self.zobrist_hash ^= EN_PASSANT[file as usize];
         }
-        
-        self.white_turn = !self.white_turn;
+
+        // Switch sides
+        self.turn = !self.turn;
+
         self.white_cache.set(None);
         self.black_cache.set(None);
-        self.repetition_history.push(self.to_zobrist_hash());
 
-        if self.is_checkmate(self.white_turn) {
-            san.push('#');
-        } else if self.is_in_check(self.white_turn) {
-            san.push('+');
+        // Update repetition history
+        self.repetition_history.push(self.zobrist_hash);
+
+        // Final SAN formatting
+        if self.is_in_checkmate(self.turn) {
+            san.set_mate(true);
+        } else if self.is_in_check(self.turn) {
+            san.set_check(true);
         }
-        self.history.push((mov, san));
         
+        // Save to history (with original Zobrist hash)
+        self.history.push(History::new(mov, hash, san));
     }
     pub fn undo_move(&mut self) {
-        if let Some((last_move, _)) = self.history.pop() {
-            let (player, opponent) = match !self.white_turn {
-                true => (&mut self.white, &mut self.black),
-                false => {
+        if let Some(h) = self.history.pop() {
+            let last_move = h.last_move;
+            let (player, opponent) = match !self.turn {
+                Colour::White => (&mut self.white, &mut self.black),
+                Colour::Black => {
                     self.full_move -= 1;
                     (&mut self.black, &mut self.white)
                 },
@@ -196,7 +261,7 @@ impl Board {
                 {
                     opponent.place_piece(
                         Piece::Pawn,
-                        last_move.to().backward(!self.white_turn).unwrap(),
+                        last_move.to().backward(!self.turn).unwrap(),
                     );
                 } else {
                     opponent.place_piece(captured, last_move.to());
@@ -204,17 +269,17 @@ impl Board {
             }
 
             if last_move.piece() == Piece::King {
-                match (!self.white_turn, last_move.from(), last_move.to()) {
-                    (true, Tile::E1, Tile::G1) => {
+                match (!self.turn, last_move.from(), last_move.to()) {
+                    (Colour::White, Tile::E1, Tile::G1) => {
                         player.move_piece(Tile::F1, Tile::H1);
                     }
-                    (true, Tile::E1, Tile::C1) => {
+                    (Colour::White, Tile::E1, Tile::C1) => {
                         player.move_piece(Tile::D1, Tile::A1);
                     }
-                    (false, Tile::E8, Tile::G8) => {
+                    (Colour::Black, Tile::E8, Tile::G8) => {
                         player.move_piece(Tile::F8, Tile::H8);
                     }
-                    (false, Tile::E8, Tile::C8) => {
+                    (Colour::Black, Tile::E8, Tile::C8) => {
                         player.move_piece(Tile::D8, Tile::A8);
                     }
                     _ => {}
@@ -222,12 +287,16 @@ impl Board {
             }
             self.castling = last_move.prev_castle();
             self.en_passant = last_move.en_passant();
+
             self.white_cache.set(last_move.white_cache());
             self.black_cache.set(last_move.black_cache());
+
             self.half_moves = last_move.prev_half_moves();
             self.repetition_history.pop();
 
-            self.white_turn = !self.white_turn;
+            self.zobrist_hash = h.last_zobrist;
+
+            self.turn = !self.turn;
         }
     }
 }

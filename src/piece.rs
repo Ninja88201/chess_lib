@@ -1,3 +1,5 @@
+use crate::Colour;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Piece {
@@ -19,9 +21,9 @@ impl Piece {
     ];
     pub const PROMOTION_PIECES: [Piece; 4] = [
         Piece::Queen,
+        Piece::Knight,
         Piece::Rook,
         Piece::Bishop,
-        Piece::Knight
     ];
     pub fn from_index(index: usize) -> Self {
         match index {
@@ -34,24 +36,24 @@ impl Piece {
             _ => panic!("Invalid piece index"),
         }
     }
-    pub fn to_zobrist_index(&self, white: bool) -> usize {
-        match (self, white) {
-            (Piece::Pawn, true) => 0,
-            (Piece::Knight, true) => 1,
-            (Piece::Bishop, true) => 2,
-            (Piece::Rook, true) => 3,
-            (Piece::Queen, true) => 4,
-            (Piece::King, true) => 5,
+    pub fn to_zobrist_index(&self, colour: Colour) -> usize {
+        match (self, colour) {
+            (Piece::Pawn, Colour::White) => 0,
+            (Piece::Knight, Colour::White) => 1,
+            (Piece::Bishop, Colour::White) => 2,
+            (Piece::Rook, Colour::White) => 3,
+            (Piece::Queen, Colour::White) => 4,
+            (Piece::King, Colour::White) => 5,
 
-            (Piece::Pawn, false) => 6,
-            (Piece::Knight, false) => 7,
-            (Piece::Bishop, false) => 8,
-            (Piece::Rook, false) => 9,
-            (Piece::Queen, false) => 10,
-            (Piece::King, false) => 11,
+            (Piece::Pawn, Colour::Black) => 6,
+            (Piece::Knight, Colour::Black) => 7,
+            (Piece::Bishop, Colour::Black) => 8,
+            (Piece::Rook, Colour::Black) => 9,
+            (Piece::Queen, Colour::Black) => 10,
+            (Piece::King, Colour::Black) => 11,
         }
     }
-    pub fn to_fen_char(&self, white: bool) -> char {
+    pub fn to_fen_char(&self, colour: Colour) -> char {
         let c = match self {
             Piece::Pawn => 'p',
             Piece::Knight => 'n',
@@ -60,47 +62,34 @@ impl Piece {
             Piece::Queen => 'q',
             Piece::King => 'k',
         };
-        if white { c.to_ascii_uppercase() } else { c }
+        if colour.white() { c.to_ascii_uppercase() } else { c }
     }
-    pub fn to_san_char(&self) -> Option<char> {
+    pub fn to_san_char(&self) -> char {
         match self {
-            Piece::Pawn => None,
-            Piece::Knight => Some('N'),
-            Piece::Bishop => Some('B'),
-            Piece::Rook => Some('R'),
-            Piece::Queen => Some('Q'),
-            Piece::King => Some('K'),
+            Piece::Pawn => '\0',
+            Piece::Knight => 'N',
+            Piece::Bishop => 'B',
+            Piece::Rook => 'R',
+            Piece::Queen => 'Q',
+            Piece::King => 'K',
         }
     }
-    pub fn to_unicode(&self, is_white: bool) -> char {
-        match (self, is_white) {
-            (Piece::King, true) => '♔',
-            (Piece::Queen, true) => '♕',
-            (Piece::Rook, true) => '♖',
-            (Piece::Bishop, true) => '♗',
-            (Piece::Knight, true) => '♘',
-            (Piece::Pawn, true) => '♙',
+    pub fn to_unicode(&self, colour: Colour) -> char {
+        match (self, colour) {
+            (Piece::King, Colour::White) => '♔',
+            (Piece::Queen, Colour::White) => '♕',
+            (Piece::Rook, Colour::White) => '♖',
+            (Piece::Bishop, Colour::White) => '♗',
+            (Piece::Knight, Colour::White) => '♘',
+            (Piece::Pawn, Colour::White) => '♙',
             
-            (Piece::King, false) => '♚',
-            (Piece::Queen, false) => '♛',
-            (Piece::Rook, false) => '♜',
-            (Piece::Bishop, false) => '♝',
-            (Piece::Knight, false) => '♞',
-            (Piece::Pawn, false) => '♟',
+            (Piece::King, Colour::Black) => '♚',
+            (Piece::Queen, Colour::Black) => '♛',
+            (Piece::Rook, Colour::Black) => '♜',
+            (Piece::Bishop, Colour::Black) => '♝',
+            (Piece::Knight, Colour::Black) => '♞',
+            (Piece::Pawn, Colour::Black) => '♟',
         }
-    }
-}
-impl std::fmt::Display for Piece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let c = match self {
-            Piece::Pawn => "",
-            Piece::Knight => "N",
-            Piece::Bishop => "B",
-            Piece::Rook => "R",
-            Piece::Queen => "Q",
-            Piece::King => "K",
-        };
-        write!(f, "{}", c)
     }
 }
 
