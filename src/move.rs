@@ -65,7 +65,7 @@ impl Move {
         white_cache: Option<bool>,
         black_cache: Option<bool>,
 
-        prev_half_moves: u8,
+        prev_half_moves: u32,
     ) -> Self {
         let mut data = 0u64;
         data |= (from.to_u8() as u64) << Self::FROM_SHIFT;
@@ -120,8 +120,8 @@ impl Move {
     pub fn black_cache(&self) -> Option<bool> {
         Self::decode_option_bool((self.0 >> Self::BLACK_CACHE_SHIFT) & 0b11)
     }
-    pub fn prev_half_moves(&self) -> u8 {
-        ((self.0 >> Self::PREV_HALF_MOVE_SHIFT) & 0xFF) as u8
+    pub fn prev_half_moves(&self) -> u32 {
+        ((self.0 >> Self::PREV_HALF_MOVE_SHIFT) & 0xFF) as u32
     }
 }
 

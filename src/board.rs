@@ -31,7 +31,7 @@ pub struct Board {
     pub history: Vec<History>,
     repetition_history: Vec<u64>,
 
-    pub half_moves: u8,
+    pub half_moves: u32,
     pub full_move: u32,
 
     white_cache: Cell<Option<bool>>,
