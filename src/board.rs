@@ -5,6 +5,7 @@ pub mod movegen;
 pub mod movement;
 
 pub mod attackgen;
+pub mod capgen;
 
 pub mod debug;
 pub mod fen;

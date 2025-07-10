@@ -72,7 +72,6 @@ impl Board {
         }
     }
 
-
     /// Generates all the legal moves for a given piece at a tile
     pub fn generate_legal_moves_from(&self, tile: Tile, moves: &mut MoveList) {
         let (piece, colour) = match self.get_piece_at_tile(tile) {
@@ -140,7 +139,7 @@ impl Board {
     }
 
     /// Returns a bitboard representing all the tiles that attack the given colours king
-    fn get_checkers(&self, colour: Colour) -> Bitboard {
+    pub fn get_checkers(&self, colour: Colour) -> Bitboard {
         let (player, attacker) = self.get_players(colour);
         let occ = self.occupied();
         let mut checkers = Bitboard::EMPTY;
@@ -183,7 +182,7 @@ impl Board {
     }
     /// Returns any tiles that are pinned to the king & a corresponding bitboard
     /// representing the tiles that piece can move to 
-    fn get_pinned_pieces(&self, colour: Colour) -> HashMap<Tile, Bitboard> {
+    pub fn get_pinned_pieces(&self, colour: Colour) -> HashMap<Tile, Bitboard> {
         use crate::Piece::{Bishop, Queen, Rook};
         let mut pins = HashMap::new();
 
@@ -371,7 +370,7 @@ impl Board {
     }
 
     /// Adds the appropriate promotion moves if the resulting move ladns on a promotion tile
-    fn try_push_pawn_move(
+    pub fn try_push_pawn_move(
         &self,
         from: Tile,
         to: Tile,
@@ -514,7 +513,7 @@ impl Board {
         }
     }
 
-    fn is_square_occupied_by_enemy(&self, square: Tile, colour: Colour) -> bool {
+    pub fn is_square_occupied_by_enemy(&self, square: Tile, colour: Colour) -> bool {
         let (_, opponent) = self.get_players(colour);
         opponent.pieces.get_bit(square)
     }
