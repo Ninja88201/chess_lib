@@ -99,6 +99,11 @@ impl Tile {
     pub fn right(&self, colour: Colour) -> Option<Self> {
         self.offset(if colour.white() { 1 } else { -1 }, 0)
     }
+    pub fn mirror_tile(tile: Tile) -> Tile {
+        let index = tile.to_u8();
+        let mirrored_index = index ^ 56;
+        Tile::new_unchecked(mirrored_index)
+    }
 
     // Board rules
     pub fn is_promotion(&self, colour: Colour) -> bool {
@@ -149,7 +154,7 @@ impl Tile {
         let mask = self.to_mask();
         match colour {
             Colour::White => ((mask << 7) & !Bitboard::FILE_H) | ((mask << 9) & !Bitboard::FILE_A),
-            Colour::Black => ((mask >> 7) & !Bitboard::FILE_A) | ((mask >> 9) & !Bitboard::FILE_H),
+            Colour::Black => ((mask >> 9) & !Bitboard::FILE_A) | ((mask >> 7) & !Bitboard::FILE_H),
         }
     }
     

@@ -1,4 +1,4 @@
-use crate::{Board, Colour, Piece, Tile};
+use crate::{Board, Colour, MoveList, Piece, Tile};
 
 fn empty_board_with(piece: Piece, tile: Tile, colour: Colour) -> Board {
     let mut board = Board::new_empty();
@@ -91,4 +91,21 @@ fn king_danger() {
         attacks.get_bit(Tile::E1),
         "King danger should not include friendly king tile"
     );
+}
+#[test]
+fn captures() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::King, Tile::A3);
+    board.white.place_piece(Piece::Queen, Tile::B3);
+
+    board.black.place_piece(Piece::Pawn, Tile::H3);
+    board.black.place_piece(Piece::Pawn, Tile::G3);
+    board.black.place_piece(Piece::King, Tile::A8);
+
+    let mut moves = MoveList::new();
+    board.generate_legal_captures(board.turn, &mut moves);
+    assert!(moves.len() > 0);
+    for &m in moves.iter() {
+        assert!(m.capture().is_some(), "Found a non capturing move")
+    }
 }
