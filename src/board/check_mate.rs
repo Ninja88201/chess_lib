@@ -26,7 +26,7 @@ impl Board {
             return true;
         }
 
-        let pawn_mask = tile.pawn_attacks(!colour);
+        let pawn_mask = tile.pawn_attacks(colour);
         if (attacker.bb[Piece::Pawn as usize] & pawn_mask).some() {
             return true;
         }
