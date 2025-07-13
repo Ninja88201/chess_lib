@@ -74,5 +74,5 @@ fn get_king_tile() {
     let player = Player::new_white();
     let king_bb = player.bb[Piece::King as usize];
     let tile = king_bb.to_bit().unwrap();
-    assert_eq!(tile, player.king_tile());
+    assert_eq!(tile, player.king_tile().unwrap());
 }

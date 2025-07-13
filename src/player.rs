@@ -91,8 +91,8 @@ impl Player {
     }
 
     /// Unsafely returns the king tile, assuming exactly 1 king
-    pub fn king_tile(&self) -> Tile {
-        self.bb[Piece::King as usize].to_bit().unwrap()
+    pub fn king_tile(&self) -> Option<Tile> {
+        self.bb[Piece::King as usize].to_bit()
     }
 
     pub fn get_piece(&self, tile: Tile) -> Option<Piece> {

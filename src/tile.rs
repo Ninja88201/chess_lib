@@ -154,7 +154,7 @@ impl Tile {
         let mask = self.to_mask();
         match colour {
             Colour::White => ((mask << 7) & !Bitboard::FILE_H) | ((mask << 9) & !Bitboard::FILE_A),
-            Colour::Black => ((mask >> 9) & !Bitboard::FILE_A) | ((mask >> 7) & !Bitboard::FILE_H),
+            Colour::Black => ((mask >> 7) & !Bitboard::FILE_A) | ((mask >> 9) & !Bitboard::FILE_H),
         }
     }
     

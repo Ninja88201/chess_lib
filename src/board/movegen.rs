@@ -9,7 +9,10 @@ impl Board {
         let checkers = self.get_checkers(colour);
         let checkers_count = checkers.count_ones();
 
-        let king_tile = player.king_tile();
+        if player.king_tile().is_none() {
+            return;
+        }
+        let king_tile = player.king_tile().unwrap();
 
         self.generate_king_moves(king_tile, colour, moves);
 
@@ -80,6 +83,10 @@ impl Board {
         };
 
         let (player, _) = self.get_players(colour);
+        if player.king_tile().is_none() {
+            return;
+        }
+        let king_tile = player.king_tile().unwrap();
         let checkers = self.get_checkers(colour);
         let checkers_count = checkers.count_ones();
 
@@ -95,7 +102,7 @@ impl Board {
                 let mut mask = Bitboard::EMPTY;
                 mask.set_bit(checker_pos, true);
                 if matches!(checker_piece.0, Piece::Bishop | Piece::Rook | Piece::Queen) {
-                    mask |= player.king_tile().get_between(checker_pos)
+                    mask |= king_tile.get_between(checker_pos)
                 }
                 Some(mask)
             } else {
@@ -143,7 +150,10 @@ impl Board {
         let (player, attacker) = self.get_players(colour);
         let occ = self.occupied();
         let mut checkers = Bitboard::EMPTY;
-        let kt = player.king_tile();
+        if player.king_tile().is_none() {
+            return Bitboard::EMPTY;
+        }
+        let kt = player.king_tile().unwrap();
 
         let straight_mask = kt.rook_attacks(occ);
         let diag_mask = kt.bishop_attacks(occ);
@@ -187,7 +197,10 @@ impl Board {
         let mut pins = HashMap::new();
 
         let (player, opponent) = self.get_players(colour);
-        let king_tile = player.king_tile();
+        if player.king_tile().is_none() {
+            return pins;
+        }
+        let king_tile = player.king_tile().unwrap();
         let occ = opponent.pieces;
 
         let rook_attackers = opponent.bb[Rook as usize] | opponent.bb[Queen as usize];
@@ -224,7 +237,10 @@ impl Board {
         let mut pins = Bitboard::EMPTY;
 
         let (player, opponent) = self.get_players(colour);
-        let king_tile = player.king_tile();
+        if player.king_tile().is_none() {
+            return pins;
+        }
+        let king_tile = player.king_tile().unwrap();
         let occ = opponent.pieces;
 
         let rook_attackers = opponent.bb[Rook as usize] | opponent.bb[Queen as usize];

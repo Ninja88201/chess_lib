@@ -4,13 +4,17 @@ impl Board
 {
     pub fn generate_legal_captures(&self, colour: Colour, moves: &mut MoveList) {
         let (player, _) = self.get_players(colour);
+        if player.king_tile().is_none() {
+            return;
+        }
+        let king_tile = player.king_tile().unwrap();
+
         let checkers = self.get_checkers(colour);
         let checkers_count = checkers.count_ones();
-        let king_tile = player.king_tile();
 
         self.generate_king_capture_moves(king_tile, colour, moves);
 
-        // Double check → only king can move
+        // Double check - only king can move
         if checkers_count > 1 {
             return;
         }

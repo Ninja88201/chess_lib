@@ -46,8 +46,10 @@ impl Board {
         }
 
         let (player, _) = self.get_players(colour);
-        let is_checked =
-            self.tile_attacked(player.king_tile(), colour);
+        if player.king_tile().is_none() {
+            return false;
+        }
+        let is_checked = self.tile_attacked(player.king_tile().unwrap(), colour);
 
         if colour.white() {
             self.white_cache.set(Some(is_checked));
