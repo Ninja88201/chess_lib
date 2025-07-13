@@ -99,8 +99,8 @@ impl Tile {
     pub fn right(&self, colour: Colour) -> Option<Self> {
         self.offset(if colour.white() { 1 } else { -1 }, 0)
     }
-    pub fn mirror_tile(tile: Tile) -> Tile {
-        let index = tile.to_u8();
+    pub fn mirror_tile(&self) -> Tile {
+        let index = self.to_u8();
         let mirrored_index = index ^ 56;
         Tile::new_unchecked(mirrored_index)
     }
