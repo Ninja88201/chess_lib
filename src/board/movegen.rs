@@ -129,7 +129,7 @@ impl Board {
     }
 
     /// Generates pseudo legal moves for a piece on a given tile
-    pub fn generate_psuedo_moves_from(&self, tile: Tile, moves: &mut MoveList) {
+    pub fn generate_pseudo_moves_from(&self, tile: Tile, moves: &mut MoveList) {
         match self.get_piece_at_tile(tile) {
             Some((p, _)) => {
                 match p {

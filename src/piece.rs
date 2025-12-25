@@ -36,6 +36,16 @@ impl Piece {
             _ => panic!("Invalid piece index"),
         }
     }
+    pub fn from_san(san: char) -> Self {
+        match san {
+            'N' => Piece::Knight,
+            'B' => Piece::Bishop,
+            'R' => Piece::Rook,
+            'Q' => Piece::Queen,
+            'K' => Piece::King,
+            _ => Piece::Pawn,
+        }
+    }
     pub fn to_zobrist_index(&self, colour: Colour) -> usize {
         match (self, colour) {
             (Piece::Pawn, Colour::White) => 0,

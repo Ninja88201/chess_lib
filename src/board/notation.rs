@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Bitboard, Board, Disambig, GameState, Move, MoveList, Piece, SanMove, Tile};
+use crate::{Bitboard, Board, Colour, Disambig, GameState, Move, Piece, SanMove, Tile};
 
 impl Board {
     /// Converts the current board position into Forsyth–Edwards Notation
@@ -95,7 +95,14 @@ impl Board {
 
     /// Attempts to create an internal move from a string in Standard Algebraic Notation ( SAN )
     pub fn move_from_algebraic(&self, s: &str) -> Option<Move> {
-        let s = s.trim();
+        if s == "" {
+            return None
+        }
+
+        let s = s.trim().trim_end_matches(['+', '#', '?', '!']);
+        let len = s.len();
+        let is_capture = s.contains('x');
+        let (player, _) = self.get_players(self.turn);
 
         // Castling
         if s.eq_ignore_ascii_case("O-O") || s == "0-0" {
@@ -116,103 +123,137 @@ impl Board {
             return Some(self.create_move(from, to, Piece::King, None, None));
         }
 
-        let mut chars = s.chars().peekable();
-
-        // Piece type
-        let piece = match chars.peek() {
-            Some('N') => { chars.next(); Piece::Knight }
-            Some('B') => { chars.next(); Piece::Bishop }
-            Some('R') => { chars.next(); Piece::Rook }
-            Some('Q') => { chars.next(); Piece::Queen }
-            Some('K') => { chars.next(); Piece::King }
-            _ => Piece::Pawn,
-        };
-
-        let mut disamb_file = None;
-        let mut disamb_rank = None;
-
-        // Disambiguation
-        while let Some(&c) = chars.peek() {
-            if c == 'x' {
-                break;
-            } else if c.is_ascii_digit() {
-                disamb_rank = Some(c as u8 - b'1');
-                chars.next();
-            } else if c.is_ascii_alphabetic() {
-                disamb_file = Some(c as u8 - b'a');
-                chars.next();
-            } else {
-                break;
-            }
-        }
-
-        let is_capture = matches!(chars.peek(), Some('x'));
-        if is_capture {
-            chars.next();
-        }
-
-        // Destination
-        let dest_file = chars.next()? as u8 - b'a';
-        let dest_rank = chars.next()? as u8 - b'1';
-        let to = Tile::new_xy(dest_file, dest_rank)?;
-
         // Promotion
-        let promotion = if chars.peek() == Some(&'=') {
-            chars.next();
-            match chars.next()? {
-                'Q' => Some(Piece::Queen),
-                'R' => Some(Piece::Rook),
-                'B' => Some(Piece::Bishop),
-                'N' => Some(Piece::Knight),
-                _ => return None,
-            }
-        } else {
-            None
-        };
+        if s.contains('=') {
+            let first = s.chars().nth(0)?;
+            let last = s.chars().last()?;
+            let promotion = Piece::from_san(last);
+            let dest = Tile::from_str(&s[len-4..len-2])?;
 
-        let (player, _) = self.get_players(self.turn);
 
-        // Filter matching pieces that can move to destination
-        let mut candidates: Vec<Tile> = player.bb[piece as usize]
-            .iter()
-            .filter(|&from_tile| {
-                let mut moves = MoveList::new();
-                self.generate_psuedo_moves_from(from_tile, &mut moves);
-                moves.contains_move(from_tile, to)
-            })
-            .collect();
+            let source = if !is_capture {
+                (Bitboard::from_tile(dest.backward(self.turn)?) & player.bb[Piece::Pawn as usize]).to_bit()?
+            } else {
+                (dest.pawn_attacks(!self.turn) & 
+                    player.bb[Piece::Pawn as usize] & 
+                    Bitboard::from_tile(Tile::new_chars(first, if self.turn == Colour::White {'7'} else {'2'})?)).to_bit()?
+            };
 
-        // Apply disambiguation
-        if let Some(f) = disamb_file {
-            candidates.retain(|&t| t.get_coords().0 == f);
-        }
-        if let Some(r) = disamb_rank {
-            candidates.retain(|&t| t.get_coords().1 == r);
+            return Some(self.create_move(
+                source, 
+                dest, 
+                Piece::Pawn, 
+                self.get_piece_at_tile(dest).map(|(p, _)| p), 
+                Some(promotion)
+            ))
         }
 
-        // Ambiguity check
-        if candidates.len() != 1 {
-            return None;
-        }
-
-        let from = candidates[0];
-
-        // Determine captured piece
-        let captured = if is_capture {
-            self.get_piece_at_tile(to)
-                .map(|(p, _)| p)
-                .or_else(|| {
-                    if piece == Piece::Pawn && Some(to) == self.en_passant {
-                        Some(Piece::Pawn)
-                    } else {
-                        None
+        match len {
+            2 => {
+                // Pawn move
+                // e4, d4
+                let dest = Tile::from_str(s)?; 
+                let mut bb = Bitboard::EMPTY;
+                if let Some(t1) = dest.backward(self.turn) {
+                    bb.set_bit(t1, true);
+                    if let Some(t2) = t1.backward(self.turn) {
+                        bb.set_bit(t2, true);
                     }
-                })
-        } else {
-            None
-        };
+                }
+                bb &= player.bb[Piece::Pawn as usize];
+                Some(self.create_move(
+                    bb.to_bit().unwrap(), 
+                    dest,
+                    Piece::Pawn, 
+                    None, 
+                    None
+                ))
+            },
+            3 => {
+                // Normal move
+                // Nc3, Bc4
+                let first = s.chars().nth(0)?;
+                let piece = Piece::from_san(first);
+                let dest = Tile::from_str(&s[1..])?;
 
-        Some(self.create_move(from, to, piece, captured, promotion))
+                Some(self.create_move(
+                    (player.bb[piece as usize] & self.generate_attacks_from_piece(dest, piece, !self.turn, None)).to_bit().unwrap(), 
+                    dest, 
+                    piece, 
+                    None, 
+                    None
+                ))
+            },
+            4 => {
+                // Captures or Single disambiguation
+                // exd4, Bxd4, Nfd4
+                let first = s.chars().nth(0)?;
+                let piece = Piece::from_san(first);
+                let dest = Tile::from_str(&s[len-2..])?;
+                let from = if is_capture {
+                    let mut bb = player.bb[piece as usize] & 
+                        self.generate_attacks_from_piece(dest, piece, !self.turn, None);
+
+                    if piece == Piece::Pawn {
+                        bb &= Bitboard::file_from_char(first)
+                    }
+                    bb.to_bit()?
+                } else {
+                    let piece = Piece::from_san(first);
+                    (player.bb[piece as usize] & 
+                        self.generate_attacks_from_piece(dest, piece, !self.turn, None) &
+                        Bitboard::file_from_char(s.chars().nth(1)?))
+                        .to_bit()?
+                };
+                Some(self.create_move(
+                    from, 
+                    dest, 
+                    piece, 
+                    self.get_piece_at_tile(dest).map(|(p, _)| p), 
+                    None
+                ))
+            },
+            5 => {
+                // Double disambiguation, Single disambiguation capture
+                // Nd2e4, Nfxe4
+
+                let first = s.chars().nth(0)?;
+                let piece = Piece::from_san(first);
+                let dest = Tile::from_str(&s[len-2..])?;
+                let from = if is_capture {
+                    (player.bb[piece as usize] & 
+                        self.generate_attacks_from_piece(dest, piece, !self.turn, None) &
+                        Bitboard::file_from_char(s.chars().nth(1)?))
+                        .to_bit()?
+                } else {
+                    Tile::from_str(&s[1..3])?
+                };
+                Some(self.create_move(
+                    from, 
+                    dest, 
+                    piece, 
+                    self.get_piece_at_tile(dest).map(|(p, _)| p), 
+                    None
+                ))
+            },
+            6 => {
+                // Double disambiguation capture
+                // Nd2xe4
+
+                let first = s.chars().nth(0)?;
+                let piece = Piece::from_san(first);
+                let dest = Tile::from_str(&s[len-2..])?;
+                let from = Tile::from_str(&s[1..3])?;
+                Some(self.create_move(
+                    from, 
+                    dest, 
+                    piece, 
+                    self.get_piece_at_tile(dest).map(|(p, _)| p), 
+                    None
+                ))
+            }
+            _ => None,
+        }
     }
 
     /// Converts a move into Standard Algebraic Notation using the current board

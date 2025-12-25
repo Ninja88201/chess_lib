@@ -20,4 +20,31 @@ impl Bitboard {
     pub const FILE_F: Bitboard = Bitboard::new(0x2020202020202020);
     pub const FILE_G: Bitboard = Bitboard::new(0x4040404040404040);
     pub const FILE_H: Bitboard = Bitboard::new(0x8080808080808080);
+
+    pub const fn file_from_char(ch: char) -> Bitboard {
+        match ch {
+            'a' => Self::FILE_A,
+            'b' => Self::FILE_B,
+            'c' => Self::FILE_C,
+            'd' => Self::FILE_D,
+            'e' => Self::FILE_E,
+            'f' => Self::FILE_F,
+            'g' => Self::FILE_G,
+            'h' => Self::FILE_H,
+            _ => Bitboard::EMPTY,
+        }
+    }
+    pub const fn rank_from_char(ch: char) -> Bitboard {
+        match ch {
+            '1' => Self::RANK_1,
+            '2' => Self::RANK_2,
+            '3' => Self::RANK_3,
+            '4' => Self::RANK_4,
+            '5' => Self::RANK_5,
+            '6' => Self::RANK_6,
+            '7' => Self::RANK_7,
+            '8' => Self::RANK_8,
+            _ => Bitboard::EMPTY,
+        }
+    }
 }

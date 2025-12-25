@@ -109,3 +109,175 @@ fn captures() {
         assert!(m.capture().is_some(), "Found a non capturing move")
     }
 }
+
+#[test]
+fn parse_san_pawn_move() {
+    let board = Board::new();
+    let expected = board.create_move(
+        Tile::E2, 
+        Tile::E4, 
+        Piece::Pawn, 
+        None, 
+        None
+    );
+
+    let actual = board.move_from_algebraic("e4");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_move() {
+    let board = Board::new();
+    let expected = board.create_move(
+        Tile::B1, 
+        Tile::C3, 
+        Piece::Knight, 
+        None, 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Nc3");
+
+    assert_eq!(Some(expected), actual)
+}
+
+#[test]
+fn parse_san_promotion() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Pawn, Tile::E7);
+    let expected = board.create_move(
+        Tile::E7, 
+        Tile::E8, 
+        Piece::Pawn, 
+        None, 
+        Some(Piece::Queen)
+    );
+
+    let actual = board.move_from_algebraic("e8=Q");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_promotion_capture() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Pawn, Tile::D7);
+    board.black.place_piece(Piece::Queen, Tile::E8);
+    let expected = board.create_move(
+        Tile::D7, 
+        Tile::E8, 
+        Piece::Pawn, 
+        Some(Piece::Queen), 
+        Some(Piece::Queen)
+    );
+
+    let actual = board.move_from_algebraic("dxe8=Q");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_pawn_capture() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Pawn, Tile::D6);
+    board.black.place_piece(Piece::Queen, Tile::E7);
+    let expected = board.create_move(
+        Tile::D6, 
+        Tile::E7, 
+        Piece::Pawn, 
+        Some(Piece::Queen), 
+        None
+    );
+
+    let actual = board.move_from_algebraic("dxe7");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_capture() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Bishop, Tile::A1);
+    board.black.place_piece(Piece::Rook, Tile::D4);
+    let expected = board.create_move(
+        Tile::A1, 
+        Tile::D4, 
+        Piece::Bishop, 
+        Some(Piece::Rook), 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Bxd4");
+
+    assert_eq!(Some(expected), actual)
+}
+
+#[test]
+fn parse_san_single_disambiguation() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Knight, Tile::D2);
+    board.white.place_piece(Piece::Knight, Tile::F6);
+    let expected = board.create_move(
+        Tile::D2, 
+        Tile::E4, 
+        Piece::Knight, 
+        None, 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Nde4");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_single_disambiguation_capture() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Knight, Tile::D2);
+    board.white.place_piece(Piece::Knight, Tile::F6);
+    board.black.place_piece(Piece::Rook, Tile::E4);
+    let expected = board.create_move(
+        Tile::D2, 
+        Tile::E4, 
+        Piece::Knight, 
+        Some(Piece::Rook), 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Ndxe4");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_double_disambiguation() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Knight, Tile::D2);
+    board.white.place_piece(Piece::Knight, Tile::D6);
+    board.white.place_piece(Piece::Knight, Tile::F6);
+    let expected = board.create_move(
+        Tile::D2, 
+        Tile::E4, 
+        Piece::Knight, 
+        None, 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Nd2e4");
+
+    assert_eq!(Some(expected), actual)
+}
+#[test]
+fn parse_san_double_disambiguation_capture() {
+    let mut board = Board::new_empty();
+    board.white.place_piece(Piece::Knight, Tile::D2);
+    board.white.place_piece(Piece::Knight, Tile::D6);
+    board.white.place_piece(Piece::Knight, Tile::F6);
+    board.black.place_piece(Piece::Rook, Tile::E4);
+    let expected = board.create_move(
+        Tile::D2, 
+        Tile::E4, 
+        Piece::Knight, 
+        Some(Piece::Rook), 
+        None
+    );
+
+    let actual = board.move_from_algebraic("Nd2xe4");
+
+    assert_eq!(Some(expected), actual)
+}

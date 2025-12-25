@@ -8,7 +8,7 @@ pub mod attackgen;
 pub mod capgen;
 
 pub mod debug;
-pub mod fen;
+pub mod notation;
 pub mod helper;
 
 #[cfg(test)]

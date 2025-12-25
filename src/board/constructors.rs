@@ -1,7 +1,6 @@
 use std::cell::Cell;
 
 use crate::{Board, CastlingRights, Colour, Piece, Player, Tile};
-
 impl Board {
     pub fn new() -> Self {
         Self {
@@ -150,5 +149,10 @@ impl Board {
             .map_err(|_| format!("Invalid full move count: {}", full_move))?;
 
         Ok(board)
+    }
+}
+impl Default for Board {
+    fn default() -> Self {
+        Self::new()
     }
 }
