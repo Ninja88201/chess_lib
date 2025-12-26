@@ -95,7 +95,7 @@ impl Board {
 
     /// Attempts to create an internal move from a string in Standard Algebraic Notation ( SAN )
     pub fn move_from_algebraic(&self, s: &str) -> Option<Move> {
-        if s == "" {
+        if s.is_empty() {
             return None
         }
 
@@ -342,6 +342,48 @@ impl Board {
         } else {
             Disambig::FileRank(from)
         })
+    }
+    pub fn to_ascii(&self) -> String {
+        let mut output = "  +------------------------+".to_string();
+        for y in (0..8).rev() {
+            output.push_str(&format!("{} |", y + 1));
+            for x in 0..8 {
+                let tile = Tile::new_xy(x, y).unwrap();
+                match self.get_piece_at_tile(tile) {
+                    Some((piece, is_white)) => {
+                        output.push_str(&format!(" {} ", piece.to_fen_char(is_white)));
+                    }
+                    None => {
+                        output.push_str(" . ");
+                    }
+                }
+            }
+            output.push_str("|");
+        }
+        output.push_str("  +------------------------+");
+        output.push_str("    a  b  c  d  e  f  g  h");
+        output
+    }
+    pub fn to_unicode(&self) -> String {
+        let mut output = "  +------------------------+".to_string();
+        for y in (0..8).rev() {
+            output.push_str(&format!("{} |", y + 1));
+            for x in 0..8 {
+                let tile = Tile::new_xy(x, y).unwrap();
+                match self.get_piece_at_tile(tile) {
+                    Some((piece, is_white)) => {
+                        output.push_str(&format!(" {} ", piece.to_unicode(is_white)));
+                    }
+                    None => {
+                        output.push_str(" . ");
+                    }
+                }
+            }
+            output.push_str("|");
+        }
+        output.push_str("  +------------------------+");
+        output.push_str("    a  b  c  d  e  f  g  h");
+        output
     }
 
 }

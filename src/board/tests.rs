@@ -281,3 +281,45 @@ fn parse_san_double_disambiguation_capture() {
 
     assert_eq!(Some(expected), actual)
 }
+#[test]
+fn parse_san_castling() {
+    let mut board = Board::new();
+    board.white.remove_piece(Tile::B1);
+    board.white.remove_piece(Tile::C1);
+    board.white.remove_piece(Tile::D1);
+    board.white.remove_piece(Tile::F1);
+    board.white.remove_piece(Tile::G1);
+    let short = board.create_move(
+        Tile::E1, 
+        Tile::G1, 
+        Piece::King, 
+        None, 
+        None
+    );
+    let long = board.create_move(
+        Tile::E1, 
+        Tile::C1, 
+        Piece::King, 
+        None, 
+        None
+    );
+
+    assert_eq!(Some(short), board.move_from_algebraic("O-O"));
+    assert_eq!(Some(long), board.move_from_algebraic("O-O-O"));
+}
+
+#[test]
+fn random_test() {
+    let board = Board::new_from_fen("8/6p1/3k4/R2n1bp1/1p6/1P3P1P/5KP1/8 w - - 3 35").unwrap();
+    let mov = board.create_move(
+        Tile::A5, 
+        Tile::A7, 
+        Piece::Rook, 
+        None, 
+        None
+    );
+
+    println!("{}", board);
+
+    assert_eq!(Some(mov), board.move_from_algebraic("Ra7"));
+}

@@ -86,19 +86,19 @@ impl Piece {
     }
     pub fn to_unicode(&self, colour: Colour) -> char {
         match (self, colour) {
-            (Piece::King, Colour::White) => '♔',
-            (Piece::Queen, Colour::White) => '♕',
-            (Piece::Rook, Colour::White) => '♖',
-            (Piece::Bishop, Colour::White) => '♗',
-            (Piece::Knight, Colour::White) => '♘',
-            (Piece::Pawn, Colour::White) => '♙',
+            (Piece::King, Colour::Black) => '♔',
+            (Piece::Queen, Colour::Black) => '♕',
+            (Piece::Rook, Colour::Black) => '♖',
+            (Piece::Bishop, Colour::Black) => '♗',
+            (Piece::Knight, Colour::Black) => '♘',
+            (Piece::Pawn, Colour::Black) => '♙',
             
-            (Piece::King, Colour::Black) => '♚',
-            (Piece::Queen, Colour::Black) => '♛',
-            (Piece::Rook, Colour::Black) => '♜',
-            (Piece::Bishop, Colour::Black) => '♝',
-            (Piece::Knight, Colour::Black) => '♞',
-            (Piece::Pawn, Colour::Black) => '♟',
+            (Piece::King, Colour::White) => '♚',
+            (Piece::Queen, Colour::White) => '♛',
+            (Piece::Rook, Colour::White) => '♜',
+            (Piece::Bishop, Colour::White) => '♝',
+            (Piece::Knight, Colour::White) => '♞',
+            (Piece::Pawn, Colour::White) => '♟',
         }
     }
 }
