@@ -344,7 +344,7 @@ impl Board {
         })
     }
     pub fn to_ascii(&self) -> String {
-        let mut output = "  +------------------------+".to_string();
+        let mut output = "  +------------------------+\n".to_string();
         for y in (0..8).rev() {
             output.push_str(&format!("{} |", y + 1));
             for x in 0..8 {
@@ -360,12 +360,12 @@ impl Board {
             }
             output.push_str("|");
         }
-        output.push_str("  +------------------------+");
-        output.push_str("    a  b  c  d  e  f  g  h");
+        output.push_str("  +------------------------+\n");
+        output.push_str("    a  b  c  d  e  f  g  h\n");
         output
     }
     pub fn to_unicode(&self) -> String {
-        let mut output = "  +------------------------+".to_string();
+        let mut output = "  +------------------------+\n".to_string();
         for y in (0..8).rev() {
             output.push_str(&format!("{} |", y + 1));
             for x in 0..8 {
@@ -379,10 +379,10 @@ impl Board {
                     }
                 }
             }
-            output.push_str("|");
+            output.push_str("|\n");
         }
-        output.push_str("  +------------------------+");
-        output.push_str("    a  b  c  d  e  f  g  h");
+        output.push_str("  +------------------------+\n");
+        output.push_str("    a  b  c  d  e  f  g  h\n");
         output
     }
 
